@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'ads.dart';
 import 'flip_sounds.dart';
 import 'l10n.dart';
+import 'native_files.dart';
 import 'reader_screen.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
@@ -30,31 +31,43 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Settings get _settings => widget.settings;
 
   Future<void> _pick() async {
-    final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['pdf']);
-    if (files.isEmpty) return;
-    final file = files.first;
+    final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/books');
+    await dir.create(recursive: true);
+    ({String name, String folder, String path, String? uri})? picked;
+    try {
+      // Keeps permission to write the original, for saving signed copies.
+      final p = await NativeFiles.openPdf(dir.path);
+      if (p == null) return;
+      picked = (name: p.name, folder: folderLabel(Uri.parse(p.uri)), path: p.path, uri: p.uri);
+    } on MissingPluginException {
+      picked = null;
+    }
     setState(() => _busy = true);
     try {
-      final folder = folderLabel(file.uri);
+      if (picked == null) {
+        final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['pdf']);
+        if (files.isEmpty) return;
+        final file = files.first;
+        // Keep our own copy: Android only lends the picked file for a while.
+        final local = File('${dir.path}/${DateTime.now().millisecondsSinceEpoch}_${file.name}');
+        final sink = local.openWrite();
+        await sink.addStream(file.readAsByteStream());
+        await sink.close();
+        picked = (name: file.name, folder: folderLabel(file.uri), path: local.path, uri: null);
+      }
       final recents = _settings.recents;
-      final existing = recents.where((b) => b.name == file.name && b.folder == folder).toList();
-      final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/books');
-      await dir.create(recursive: true);
-      // Keep our own copy: Android only lends the picked file for a while.
-      final local = File('${dir.path}/${DateTime.now().millisecondsSinceEpoch}_${file.name}');
-      final sink = local.openWrite();
-      await sink.addStream(file.readAsByteStream());
-      await sink.close();
+      final existing = recents.where((b) => b.name == picked!.name && b.folder == picked.folder).toList();
       for (final old in existing) {
         _deleteCopy(old);
         recents.remove(old);
       }
       final book = RecentBook(
-        name: file.name,
-        folder: folder,
-        localPath: local.path,
+        name: picked.name,
+        folder: picked.folder,
+        localPath: picked.path,
         lastPage: existing.isEmpty ? 0 : existing.first.lastPage,
         rtl: existing.isEmpty ? null : existing.first.rtl,
+        uri: picked.uri,
       );
       _settings.saveRecents([book, ...recents]);
       if (mounted) await _open(book);

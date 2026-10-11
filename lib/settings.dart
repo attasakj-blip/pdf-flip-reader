@@ -6,18 +6,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// A PDF the reader has opened before. The app keeps its own copy at
 /// [localPath] so it can reopen the book without asking for the file again.
 class RecentBook {
-  RecentBook({required this.name, required this.folder, required this.localPath, this.lastPage = 0, this.rtl});
+  RecentBook({
+    required this.name,
+    required this.folder,
+    required this.localPath,
+    this.lastPage = 0,
+    this.rtl,
+    this.uri,
+  });
 
   final String name;
   final String folder;
   final String localPath;
   int lastPage;
 
+  /// The original file in the phone's storage (content:// link), when the
+  /// app may write to it. Saving an edit can replace it.
+  final String? uri;
+
   /// Turn pages right to left (Arabic books, manga). Null until the reader
   /// chooses; the app then follows the menu language's direction.
   bool? rtl;
 
-  Map<String, Object> toJson() => {'name': name, 'folder': folder, 'path': localPath, 'page': lastPage, 'rtl': ?rtl};
+  Map<String, Object> toJson() => {
+    'name': name,
+    'folder': folder,
+    'path': localPath,
+    'page': lastPage,
+    'rtl': ?rtl,
+    'uri': ?uri,
+  };
 
   static RecentBook fromJson(Map<String, dynamic> j) => RecentBook(
     name: j['name'] as String,
@@ -25,6 +43,16 @@ class RecentBook {
     localPath: j['path'] as String,
     lastPage: (j['page'] as int?) ?? 0,
     rtl: j['rtl'] as bool?,
+    uri: j['uri'] as String?,
+  );
+
+  RecentBook copyWith({String? name, String? folder, String? localPath, String? uri}) => RecentBook(
+    name: name ?? this.name,
+    folder: folder ?? this.folder,
+    localPath: localPath ?? this.localPath,
+    lastPage: lastPage,
+    rtl: rtl,
+    uri: uri ?? this.uri,
   );
 }
 
@@ -67,6 +95,13 @@ class Settings extends ChangeNotifier {
 
   double get volume => _prefs.getDouble('volume') ?? 0.8;
   set volume(double v) => _set(() => _prefs.setDouble('volume', v));
+
+  /// Background sound while reading: -1 off, else 0-29 (see ambient.dart).
+  int get ambientIndex => (_prefs.getInt('ambientIndex') ?? -1).clamp(-1, 29);
+  set ambientIndex(int v) => _set(() => _prefs.setInt('ambientIndex', v));
+
+  double get ambientVolume => _prefs.getDouble('ambientVolume') ?? 0.4;
+  set ambientVolume(double v) => _set(() => _prefs.setDouble('ambientVolume', v));
 
   List<RecentBook> get recents {
     final raw = _prefs.getString('recents');

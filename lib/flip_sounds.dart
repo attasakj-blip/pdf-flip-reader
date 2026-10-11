@@ -11,7 +11,12 @@ class FlipSounds {
   FlipSounds(this.settings);
 
   final Settings settings;
-  late final List<AudioPlayer> _players = List.generate(2, (_) => AudioPlayer());
+  // Short effects must not take audio focus: that would stop the background
+  // sound (and any music app) on every page turn.
+  static final _effects = AudioContext(
+    android: const AudioContextAndroid(audioFocus: AndroidAudioFocus.none, usageType: AndroidUsageType.game),
+  );
+  late final List<AudioPlayer> _players = List.generate(2, (_) => AudioPlayer()..setAudioContext(_effects));
   bool _used = false;
   int _next = 0;
 

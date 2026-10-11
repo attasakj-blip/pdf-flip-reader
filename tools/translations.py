@@ -279,6 +279,9 @@ ADDED = {
         'vi': 'Xoay màn hình', 'fil': 'I-rotate ang screen',
     },
 }
+from translations_features import FEATURES  # noqa: E402
+
+ADDED.update(FEATURES)
 for _key, _vals in ADDED.items():
     KEYS.append(_key)
     for _code, (_, _list) in LANGS.items():

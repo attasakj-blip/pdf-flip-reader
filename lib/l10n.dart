@@ -71,6 +71,42 @@ class S {
   String get cancel => _f('cancel');
   String get go => _f('go');
   String soundName(int i) => _f('s${i + 1}');
+  String get signDocument => _f('signDocument');
+  String get signPadTitle => _f('signPadTitle');
+  String get clear => _f('clear');
+  String get done => _f('done');
+  String get placeHint => _f('placeHint');
+  String get saveTitle => _f('saveTitle');
+  String get saveReplace => _f('saveReplace');
+  String get saveReplaceHint => _f('saveReplaceHint');
+  String get saveAsNew => _f('saveAsNew');
+  String get saveAsNewHint => _f('saveAsNewHint');
+  String get saveNewFolder => _f('saveNewFolder');
+  String get saveNewFolderHint => _f('saveNewFolderHint');
+  String get folderName => _f('folderName');
+  String get fileName => _f('fileName');
+  String get saveButton => _f('saveButton');
+  String savedAs(String x) => _f('savedAs', {'x': x});
+  String saveFailed(Object e) => _f('saveFailed', {'e': e});
+  String get pickOriginal => _f('pickOriginal');
+  String get copyPage => _f('copyPage');
+  String get copyArea => _f('copyArea');
+  String get selectAreaHint => _f('selectAreaHint');
+  String get copy => _f('copy');
+  String get copied => _f('copied');
+  String get whichPage => _f('whichPage');
+  String pageN(int n) => _f('pageN', {'n': n});
+  String get deletePages => _f('deletePages');
+  String get deleteTitle => _f('deleteTitle');
+  String get deleteChoose => _f('deleteChoose');
+  String deleteThisPage(int n) => _f('deleteThisPage', {'n': n});
+  String get delete => _f('delete');
+  String get keepOnePage => _f('keepOnePage');
+  String get ambientMenu => _f('ambientMenu');
+  String get ambientOff => _f('ambientOff');
+  String get ambientHint => _f('ambientHint');
+  String get working => _f('working');
+  String ambientName(int i) => _f('a$i');
 }
 
 class SDelegate extends LocalizationsDelegate<S> {

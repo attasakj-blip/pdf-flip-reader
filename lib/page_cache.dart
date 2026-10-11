@@ -67,6 +67,20 @@ class PageCache extends ChangeNotifier implements PageImageSource {
     }
   }
 
+  /// Runs [task] with the document once queued renders are done. Android
+  /// can only have one page of a document open at a time.
+  Future<T> exclusive<T>(Future<T> Function(PdfDocument doc) task) {
+    final done = Completer<T>();
+    _chain = _chain.then((_) async {
+      try {
+        done.complete(await task(document));
+      } catch (e, st) {
+        done.completeError(e, st);
+      }
+    });
+    return done.future;
+  }
+
   Future<void> _render(int index) async {
     if (_disposed) return;
     try {

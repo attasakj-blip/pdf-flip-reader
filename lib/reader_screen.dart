@@ -1,15 +1,22 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'ambient.dart';
 import 'book_painter.dart';
+import 'edit_tools.dart';
 import 'flip_sounds.dart';
 import 'goto_dialog.dart';
 import 'l10n.dart';
 import 'page_cache.dart';
+import 'page_clipboard.dart';
+import 'pdf_edit.dart';
+import 'save_flow.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
 
@@ -24,7 +31,11 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
+enum _Tool { none, sign, area }
+
 class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderStateMixin {
+  /// The book on screen; saving an edit as a new file switches to it.
+  late RecentBook _book = widget.book;
   PageCache? _cache;
   MirroredPages? _mirrored;
   bool _loading = true;
@@ -40,6 +51,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   int _index = 0;
 
   bool _controlsVisible = true;
+  _Tool _tool = _Tool.none;
+  Signature? _signature;
+  Size _bookSize = Size.zero;
+  late final AmbientPlayer _ambient = AmbientPlayer(_settings);
   final _focus = FocusNode();
 
   // Page-turn state.
@@ -63,12 +78,14 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         if (s == AnimationStatus.completed) _finishAnim();
       });
     _load();
+    _ambient.start();
   }
 
   @override
   void dispose() {
     _anim.dispose();
     _focus.dispose();
+    _ambient.dispose();
     _mirrored?.dispose();
     _cache?.dispose();
     WakelockPlus.disable();
@@ -77,9 +94,9 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   // ---------------------------------------------------------------- file ---
 
-  Future<void> _load() async {
+  Future<void> _load({int? keepPage}) async {
     try {
-      final doc = await PdfDocument.openFile(widget.book.localPath);
+      final doc = await PdfDocument.openFile(_book.localPath);
       final cache = PageCache(doc);
       await cache.init();
       if (!mounted) {
@@ -89,8 +106,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       setState(() {
         _cache = cache;
         _mirrored = MirroredPages(cache);
-        _rtl = widget.book.rtl ?? Directionality.of(context) == TextDirection.rtl;
-        _rebuildSpreads(keepPage: widget.book.lastPage.clamp(0, cache.pageCount - 1));
+        _rtl = _book.rtl ?? Directionality.of(context) == TextDirection.rtl;
+        _rebuildSpreads(keepPage: (keepPage ?? _book.lastPage).clamp(0, cache.pageCount - 1));
       });
       WakelockPlus.enable();
     } catch (e) {
@@ -106,10 +123,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   /// Remembers where the reader is, so the book reopens at the same page.
   void _saveProgress() {
     if (_spreads.isEmpty) return;
-    widget.book.lastPage = _firstVisiblePage;
+    _book.lastPage = _firstVisiblePage;
     final list = _settings.recents;
     for (final b in list) {
-      if (b.localPath == widget.book.localPath) b.lastPage = _firstVisiblePage;
+      if (b.localPath == _book.localPath) b.lastPage = _firstVisiblePage;
     }
     _settings.saveRecents(list);
   }
@@ -169,10 +186,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   void _setRtl(bool v) {
     if (_flip != null) return;
     setState(() => _rtl = v);
-    widget.book.rtl = v;
+    _book.rtl = v;
     final list = _settings.recents;
     for (final b in list) {
-      if (b.localPath == widget.book.localPath) b.rtl = v;
+      if (b.localPath == _book.localPath) b.rtl = v;
     }
     _settings.saveRecents(list);
   }
@@ -321,6 +338,184 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     return KeyEventResult.ignored;
   }
 
+  // ------------------------------------------------------------- editing ---
+
+  /// Visible pages and where they are on screen. Right-to-left books are
+  /// drawn mirrored, so their page slots swap sides.
+  List<PageSlot> get _slots {
+    final l = _layout;
+    if (l == null || _spreads.isEmpty) return const [];
+    final spread = _spreads[_index];
+    final w = _bookSize.width;
+    Rect place(Rect r) => _rtl ? Rect.fromLTRB(w - r.right, r.top, w - r.left, r.bottom) : r;
+    return [
+      if (spread.left != null) (page: spread.left!, rect: place(l.left)),
+      if (spread.right != null) (page: spread.right!, rect: place(l.right)),
+    ]..sort((a, b) => a.rect.left.compareTo(b.rect.left));
+  }
+
+  bool get _idle => _flip == null && !_anim.isAnimating && !_loading && _cache != null;
+
+  void _toast(String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
+
+  Future<String> _scratchPdf() async {
+    final tmp = (await getTemporaryDirectory()).path;
+    PdfEditor.cacheDir ??= tmp;
+    return '$tmp/edit_${DateTime.now().microsecondsSinceEpoch}.pdf';
+  }
+
+  Future<void> _startSigning() async {
+    if (!_idle) return;
+    final sig = await showSignaturePad(context);
+    if (sig == null || !mounted) return;
+    setState(() {
+      _signature = sig;
+      _tool = _Tool.sign;
+    });
+  }
+
+  Future<void> _placeSignature(PageSlot slot, Rect box) async {
+    final sig = _signature!;
+    setState(() {
+      _tool = _Tool.none;
+      _signature = null;
+    });
+    await _runEdit(
+      keepPage: slot.page,
+      suffix: 'signed',
+      edit: (dest) async {
+        // Roughly 300 dpi for the signature image on a typical page.
+        final px = (box.width / slot.rect.width * 2400).clamp(120, 1800).round();
+        final img = await sig.toRgba(px);
+        await PdfEditor.stamp(_book.localPath, dest, slot.page, img.rgba, img.w, img.h, pageRectOf(slot, box));
+      },
+    );
+  }
+
+  Future<void> _askDelete() async {
+    if (!_idle) return;
+    final s = S.of(context);
+    final pages = _slots.map((e) => e.page).toList();
+    final total = _cache!.pageCount;
+    List<int>? chosen;
+    if (pages.length == 1) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(s.deleteTitle),
+          content: Text(s.deleteThisPage(pages.first + 1)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.delete)),
+          ],
+        ),
+      );
+      if (ok == true) chosen = pages;
+    } else {
+      chosen = await showDialog<List<int>>(
+        context: context,
+        builder: (_) => _DeletePagesDialog(pages: pages),
+      );
+    }
+    if (chosen == null || chosen.isEmpty || !mounted) return;
+    if (chosen.length >= total) {
+      _toast(s.keepOnePage);
+      return;
+    }
+    final first = chosen.reduce(math.min);
+    final del = chosen;
+    await _runEdit(
+      keepPage: math.min(first, total - del.length - 1),
+      suffix: 'edited',
+      edit: (dest) => PdfEditor.deletePages(_book.localPath, dest, del),
+    );
+  }
+
+  /// Makes an edited copy with [edit], asks how to save it and shows the
+  /// result. The original stays as it was if anything fails or the user
+  /// backs out.
+  Future<void> _runEdit({
+    required int keepPage,
+    required String suffix,
+    required Future<void> Function(String dest) edit,
+  }) async {
+    final dest = await _scratchPdf();
+    setState(() => _loading = true);
+    try {
+      await edit(dest);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        _toast(S.of(context).saveFailed(e));
+      }
+      File(dest).delete().ignore();
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _loading = false);
+    final saved = await saveEdited(context, _settings, _book, dest, suffix: suffix);
+    File(dest).delete().ignore();
+    if (saved == null || !mounted) return;
+    final old = _book;
+    _anim.stop();
+    setState(() {
+      _loading = true;
+      _flip = null;
+      _book = saved.book..lastPage = keepPage;
+      _mirrored?.dispose();
+      _cache?.dispose();
+      _mirrored = null;
+      _cache = null;
+    });
+    if (saved.replaced && old.localPath != saved.book.localPath) {
+      File(old.localPath).delete().ignore();
+    }
+    await _load(keepPage: keepPage);
+    _saveProgress();
+  }
+
+  Future<void> _copyPage() async {
+    if (!_idle) return;
+    final s = S.of(context);
+    final pages = _slots.map((e) => e.page).toList();
+    var page = pages.first;
+    if (pages.length > 1) {
+      final picked = await showDialog<int>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(s.whichPage),
+          children: [
+            for (final p in pages)
+              SimpleDialogOption(onPressed: () => Navigator.pop(ctx, p), child: Text(s.pageN(p + 1))),
+          ],
+        ),
+      );
+      if (picked == null) return;
+      page = picked;
+    }
+    await _copy(() => PageClipboard(_cache!).pagePng(page));
+  }
+
+  Future<void> _copyArea(Rect area) async {
+    setState(() => _tool = _Tool.none);
+    final slots = _slots;
+    await _copy(() => PageClipboard(_cache!).areaPng(slots, area));
+  }
+
+  Future<void> _copy(Future<Uint8List> Function() png) async {
+    final s = S.of(context);
+    setState(() => _loading = true);
+    try {
+      await PageClipboard.copy(await png());
+      if (mounted) _toast(s.copied);
+    } catch (e) {
+      if (mounted) _toast(s.saveFailed(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   // ------------------------------------------------------------- dialogs ---
 
   Future<void> _askPage() async {
@@ -356,9 +551,22 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         onKeyEvent: _onKey,
         child: Stack(
           children: [
-            Positioned.fill(child: cache == null ? const SizedBox.shrink() : _book(cache)),
-            if (cache != null) _topBar(),
-            if (cache != null && _spreads.length > 1) _bottomBar(),
+            Positioned.fill(child: cache == null ? const SizedBox.shrink() : _bookView(cache)),
+            if (cache != null && _tool == _Tool.none) _topBar(),
+            if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
+            if (_tool == _Tool.sign && _signature != null)
+              Positioned.fill(
+                child: PlaceSignature(
+                  signature: _signature!,
+                  slots: _slots,
+                  onDone: _placeSignature,
+                  onCancel: () => setState(() => _tool = _Tool.none),
+                ),
+              ),
+            if (_tool == _Tool.area)
+              Positioned.fill(
+                child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
+              ),
             if (_loading) const Center(child: CircularProgressIndicator()),
           ],
         ),
@@ -366,9 +574,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _book(PageCache cache) => LayoutBuilder(
+  Widget _bookView(PageCache cache) => LayoutBuilder(
     builder: (context, box) {
       final size = Size(box.maxWidth, box.maxHeight);
+      _bookSize = size;
       final layout = BookLayout.compute(size, cache.aspect, _twoPage);
       if (_layout != null && _layout!.right != layout.right && _flip != null) {
         // Screen rotated mid-turn: drop the turn rather than draw it wrong.
@@ -428,7 +637,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(widget.book.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(_book.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(_pageLabel, style: const TextStyle(fontSize: 12, color: Colors.white70)),
                 ],
               ),
@@ -450,6 +659,11 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 if (v == 'night') setState(() => _settings.nightMode = !_settings.nightMode);
                 if (v == 'rotate' && _flip == null) setState(() => _settings.quarterTurns += 1);
                 if (v == 'sound') showSoundSettings(context, _settings, widget.sounds);
+                if (v == 'ambient') showAmbientSettings(context, _settings, _ambient);
+                if (v == 'sign') _startSigning();
+                if (v == 'copyPage') _copyPage();
+                if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
+                if (v == 'delete') _askDelete();
                 if (v == 'files') Navigator.of(context).maybePop();
                 if (v == 'exit') SystemNavigator.pop();
                 if (v == 'lang') {
@@ -460,6 +674,11 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
               },
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
+                _iconItem('sign', Icons.draw, S.of(context).signDocument),
+                _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
+                _iconItem('copyArea', Icons.crop, S.of(context).copyArea),
+                _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
+                const PopupMenuDivider(),
                 CheckedPopupMenuItem(
                   value: 'cover',
                   checked: _coverAlone,
@@ -482,6 +701,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                   ),
                 ),
                 PopupMenuItem(value: 'sound', child: Text('${S.of(context).flipSoundMenu}…')),
+                PopupMenuItem(value: 'ambient', child: Text('${S.of(context).ambientMenu}…')),
                 PopupMenuItem(value: 'lang', child: Text('${S.of(context).language}…')),
                 const PopupMenuDivider(),
                 PopupMenuItem(value: 'files', child: Text(S.of(context).otherFile)),
@@ -492,6 +712,11 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         ),
       ),
     ),
+  );
+
+  PopupMenuItem<String> _iconItem(String value, IconData icon, String text) => PopupMenuItem(
+    value: value,
+    child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(icon), title: Text(text)),
   );
 
   Widget _bottomBar() => AnimatedPositioned(
@@ -533,4 +758,44 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       ),
     ),
   );
+}
+
+/// Two-page view: tick which of the two pages to delete.
+class _DeletePagesDialog extends StatefulWidget {
+  const _DeletePagesDialog({required this.pages});
+  final List<int> pages;
+
+  @override
+  State<_DeletePagesDialog> createState() => _DeletePagesDialogState();
+}
+
+class _DeletePagesDialogState extends State<_DeletePagesDialog> {
+  final _chosen = <int>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    return AlertDialog(
+      title: Text(s.deleteTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(s.deleteChoose),
+          for (final p in widget.pages)
+            CheckboxListTile(
+              value: _chosen.contains(p),
+              title: Text(s.pageN(p + 1)),
+              onChanged: (v) => setState(() => v == true ? _chosen.add(p) : _chosen.remove(p)),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
+        FilledButton(
+          onPressed: _chosen.isEmpty ? null : () => Navigator.pop(context, _chosen.toList()..sort()),
+          child: Text(s.delete),
+        ),
+      ],
+    );
+  }
 }

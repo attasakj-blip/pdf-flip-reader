@@ -55,3 +55,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // FileProvider, for putting copied page images on the clipboard.
+    implementation("androidx.core:core:1.13.1")
+}
