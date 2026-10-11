@@ -6,6 +6,14 @@ plugins {
 }
 
 android {
+    // Compress the native libraries inside the APK: roughly halves the
+    // download (ML Kit and PDFium are large) at a small cost in install size.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     namespace = "com.attasak.pdf_flip_reader"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion

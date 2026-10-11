@@ -53,3 +53,12 @@ jobs:
           git add .
           git commit -q -m "Build ${GITHUB_RUN_NUMBER} from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" apk
+      # A release named "latest" with the APKs attached: the easiest link to
+      # download on a phone. Replaced on every build.
+      - name: Publish the latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest out/*.apk --title "Pagelume build ${GITHUB_RUN_NUMBER}" \
+            --notes "Download pagelume-arm64.apk for most phones, or pagelume-armv7.apk for very old phones." --latest
