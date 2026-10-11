@@ -21,6 +21,8 @@ jobs:
       - run: flutter pub get
       - run: flutter test
       - run: flutter build apk --release
+      # Smaller APK for modern 64-bit phones (most phones from 2019 on).
+      - run: flutter build apk --release --split-per-abi --target-platform android-arm64
       - uses: actions/upload-artifact@v4
         with:
           name: pdf-flip-reader-apk
@@ -30,10 +32,11 @@ jobs:
       - name: Publish APK to the apk branch
         run: |
           mkdir out && cp build/app/outputs/flutter-apk/app-release.apk out/pdf-flip-reader.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk out/pdf-flip-reader-arm64.apk
           cd out
           git init -q -b apk
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add pdf-flip-reader.apk
+          git add pdf-flip-reader.apk pdf-flip-reader-arm64.apk
           git commit -q -m "APK from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" apk
