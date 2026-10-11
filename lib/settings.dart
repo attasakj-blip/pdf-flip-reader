@@ -103,6 +103,14 @@ class Settings extends ChangeNotifier {
   double get ambientVolume => _prefs.getDouble('ambientVolume') ?? 0.4;
   set ambientVolume(double v) => _set(() => _prefs.setDouble('ambientVolume', v));
 
+  /// Last language chosen for translating documents.
+  String get translateTo => _prefs.getString('translateTo') ?? 'en';
+  set translateTo(String v) => _set(() => _prefs.setString('translateTo', v));
+
+  /// Whether the one-time pinch-to-zoom tip has been shown.
+  bool get zoomTipShown => _prefs.getBool('zoomTipShown') ?? false;
+  set zoomTipShown(bool v) => _set(() => _prefs.setBool('zoomTipShown', v));
+
   List<RecentBook> get recents {
     final raw = _prefs.getString('recents');
     if (raw == null) return [];

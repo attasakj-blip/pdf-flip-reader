@@ -20,6 +20,7 @@ import 'pdf_edit.dart';
 import 'save_flow.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
+import 'translate_flow.dart';
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book, required this.settings, required this.sounds});
@@ -32,7 +33,7 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-enum _Tool { none, sign, area }
+enum _Tool { none, sign, area, translate }
 
 enum _Gesture { none, turn, pan, zoom }
 
@@ -127,6 +128,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         _rebuildSpreads(keepPage: (keepPage ?? _book.lastPage).clamp(0, cache.pageCount - 1));
       });
       WakelockPlus.enable();
+      if (!_settings.zoomTipShown && mounted) {
+        _settings.zoomTipShown = true;
+        _toast(S.of(context).zoomHint);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(S.of(context).openFailed(e))));
@@ -604,6 +609,112 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     }
   }
 
+  // ----------------------------------------------------------- translate ---
+
+  Future<void> _translateArea(Rect area) async {
+    setState(() => _tool = _Tool.none);
+    final s = S.of(context);
+    final segments = <({int page, TextBlock block})>[];
+    for (final slot in _slots) {
+      final part = slot.rect.intersect(area);
+      if (part.width <= 0 || part.height <= 0) continue;
+      final b = await PdfEditor.textIn(_book.localPath, slot.page, pageRectOf(slot, part));
+      if (b != null && b.text.trim().isNotEmpty) segments.add((page: slot.page, block: b));
+    }
+    if (!mounted) return;
+    if (segments.isEmpty) {
+      _toast(s.noText);
+      return;
+    }
+    final to = await pickTargetLanguage(context, _settings);
+    if (to == null || !mounted) return;
+    final message = ValueNotifier(s.translating);
+    List<String>? out;
+    try {
+      out = await withProgress(
+        context,
+        message,
+        () => translateAll([for (final g in segments) g.block.text], to, message: message, s: s),
+      );
+    } catch (e) {
+      if (mounted) _toast(s.translateFailed(e));
+      return;
+    }
+    if (!mounted) return;
+    if (out == null) {
+      _toast(s.unknownLanguage);
+      return;
+    }
+    final texts = out;
+    final put = await showTranslation(context, segments.map((g) => g.block.text).join('\n\n'), texts.join('\n\n'));
+    if (!put || !mounted) return;
+    await _runEdit(
+      keepPage: segments.first.page,
+      suffix: 'translated_$to',
+      edit: (dest) async {
+        final stamps = <Stamp>[];
+        for (var i = 0; i < segments.length; i++) {
+          stamps.addAll(await translatedStamps(_book.localPath, segments[i].page, [segments[i].block], [texts[i]]));
+        }
+        await PdfEditor.stampAll(_book.localPath, dest, stamps, replaceText: true);
+      },
+    );
+  }
+
+  Future<void> _translateDoc() async {
+    if (!_idle) return;
+    _resetZoom();
+    final s = S.of(context);
+    final total = _cache!.pageCount;
+    final visible = _slots.map((e) => e.page).toList();
+    final ask = await askDocTranslation(
+      context,
+      _settings,
+      total,
+      total <= 10 ? List.generate(total, (i) => i) : visible,
+    );
+    if (ask == null || !mounted) return;
+    final message = ValueNotifier(s.translating);
+    final stamps = <Stamp>[];
+    bool? unknown;
+    try {
+      await withProgress(context, message, () async {
+        for (var k = 0; k < ask.pages.length; k++) {
+          final page = ask.pages[k];
+          message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}';
+          final blocks = translatable(await PdfEditor.textBlocks(_book.localPath, page));
+          if (blocks.isEmpty) continue;
+          final out = await translateAll(
+            [for (final b in blocks) b.text],
+            ask.to,
+            message: message,
+            s: s,
+            onProgress: (_) => message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}',
+          );
+          if (out == null) {
+            unknown ??= true;
+            continue;
+          }
+          unknown = false;
+          stamps.addAll(await translatedStamps(_book.localPath, page, blocks, out));
+        }
+      });
+    } catch (e) {
+      if (mounted) _toast(s.translateFailed(e));
+      return;
+    }
+    if (!mounted) return;
+    if (stamps.isEmpty) {
+      _toast(unknown == true ? s.unknownLanguage : s.noText);
+      return;
+    }
+    await _runEdit(
+      keepPage: ask.pages.first,
+      suffix: 'translated_${ask.to}',
+      edit: (dest) => PdfEditor.stampAll(_book.localPath, dest, stamps, replaceText: true),
+    );
+  }
+
   // ------------------------------------------------------------- dialogs ---
 
   Future<void> _askPage() async {
@@ -648,6 +759,15 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                   signature: _signature!,
                   slots: _slots,
                   onDone: _placeSignature,
+                  onCancel: () => setState(() => _tool = _Tool.none),
+                ),
+              ),
+            if (_tool == _Tool.translate)
+              Positioned.fill(
+                child: SelectArea(
+                  hint: S.of(context).selectTextHint,
+                  confirm: S.of(context).translateButton,
+                  onDone: _translateArea,
                   onCancel: () => setState(() => _tool = _Tool.none),
                 ),
               ),
@@ -764,6 +884,11 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                   setState(() => _tool = _Tool.area);
                 }
                 if (v == 'delete') _askDelete();
+                if (v == 'translateArea' && _idle) {
+                  _resetZoom();
+                  setState(() => _tool = _Tool.translate);
+                }
+                if (v == 'translateDoc') _translateDoc();
                 if (v == 'files') Navigator.of(context).maybePop();
                 if (v == 'exit') SystemNavigator.pop();
                 if (v == 'lang') {
@@ -778,6 +903,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
                 _iconItem('copyArea', Icons.crop, S.of(context).copyArea),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
+                _iconItem('translateArea', Icons.translate, S.of(context).translateArea),
+                _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
                 const PopupMenuDivider(),
                 CheckedPopupMenuItem(
                   value: 'cover',

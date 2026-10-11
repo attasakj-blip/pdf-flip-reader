@@ -316,10 +316,14 @@ class _SignaturePainter extends CustomPainter {
 
 /// Lets the user drag out a box to copy, then adjust it by its corners.
 class SelectArea extends StatefulWidget {
-  const SelectArea({super.key, required this.onDone, required this.onCancel});
+  const SelectArea({super.key, required this.onDone, required this.onCancel, this.hint, this.confirm});
 
   final void Function(Rect area) onDone;
   final VoidCallback onCancel;
+
+  /// Defaults: the copy tool's texts.
+  final String? hint;
+  final String? confirm;
 
   @override
   State<SelectArea> createState() => _SelectAreaState();
@@ -373,8 +377,8 @@ class _SelectAreaState extends State<SelectArea> {
           left: 0,
           right: 0,
           child: ToolBar(
-            hint: S.of(context).selectAreaHint,
-            confirm: S.of(context).copy,
+            hint: widget.hint ?? S.of(context).selectAreaHint,
+            confirm: widget.confirm ?? S.of(context).copy,
             onCancel: widget.onCancel,
             onConfirm: a == null || a.width < 8 || a.height < 8 ? null : () => widget.onDone(a),
           ),

@@ -107,4 +107,57 @@ void main() {
     expect((await doc2.pages[0].loadText())!.fullText, contains('Page number 3'));
     await doc2.dispose();
   });
+
+  test('text is grouped into paragraphs with their places on the page', () async {
+    final d = pw.Document();
+    d.addPage(
+      pw.Page(
+        pageFormat: p.PdfPageFormat.a4,
+        build: (_) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('A Big Title', style: const pw.TextStyle(fontSize: 28)),
+            pw.SizedBox(height: 30),
+            pw.Paragraph(
+              text:
+                  'The first paragraph is long enough to wrap onto more than one line of the page, '
+                  'so the reader must join its lines back into one piece of text before translating it.',
+            ),
+            pw.SizedBox(height: 20),
+            pw.Paragraph(text: 'A second, short paragraph.'),
+          ],
+        ),
+      ),
+    );
+    final path = '${dir.path}/para.pdf';
+    File(path).writeAsBytesSync(await d.save());
+    final blocks = await PdfEditor.textBlocks(path, 0);
+    expect(blocks.map((b) => b.text).toList(), [
+      'A Big Title',
+      'The first paragraph is long enough to wrap onto more than one line of the page, '
+          'so the reader must join its lines back into one piece of text before translating it.',
+      'A second, short paragraph.',
+    ]);
+    // Title above the paragraphs, all near the left margin.
+    expect(blocks[0].rect.top, lessThan(blocks[1].rect.top));
+    expect(blocks[1].rect.top + blocks[1].rect.height, lessThan(blocks[2].rect.top));
+    for (final b in blocks) {
+      expect(b.rect.left, closeTo(0.1, 0.04));
+    }
+    expect(blocks[0].lineHeight, greaterThan(blocks[2].lineHeight));
+    expect(blocks[1].rect.height, greaterThan(blocks[2].rect.height * 1.8));
+
+    final inBox = await PdfEditor.textIn(path, 0, (left: 0, top: blocks[2].rect.top - 0.01, width: 1, height: 0.05));
+    expect(inBox!.text, 'A second, short paragraph.');
+  });
+
+  test('text on a turned page is placed as shown', () async {
+    final src = await samplePdf(dir);
+    final blocks = await PdfEditor.textBlocks(src, 2);
+    expect(blocks.single.text, 'Page number 3');
+    // The page is turned a quarter clockwise, so its top-left text now sits
+    // at the top right, running downwards.
+    expect(blocks.single.rect.left, greaterThan(0.8));
+    expect(blocks.single.rect.height, greaterThan(blocks.single.rect.width));
+  });
 }

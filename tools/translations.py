@@ -280,8 +280,10 @@ ADDED = {
     },
 }
 from translations_features import FEATURES  # noqa: E402
+from translations_translate import TRANSLATE  # noqa: E402
 
 ADDED.update(FEATURES)
+ADDED.update(TRANSLATE)
 for _key, _vals in ADDED.items():
     KEYS.append(_key)
     for _code, (_, _list) in LANGS.items():

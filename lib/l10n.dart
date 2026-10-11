@@ -107,6 +107,25 @@ class S {
   String get ambientHint => _f('ambientHint');
   String get working => _f('working');
   String ambientName(int i) => _f('a$i');
+  String get translateArea => _f('translateArea');
+  String get translateDoc => _f('translateDoc');
+  String get selectTextHint => _f('selectTextHint');
+  String get translateTo => _f('translateTo');
+  String get translateButton => _f('translateButton');
+  String get translationTitle => _f('translationTitle');
+  String get translating => _f('translating');
+  String pageProgress(int n, int total) => _f('pageProgress', {'n': n, 'total': total});
+  String get downloadingModel => _f('downloadingModel');
+  String get noText => _f('noText');
+  String get copyText => _f('copyText');
+  String get textCopied => _f('textCopied');
+  String get placeTranslation => _f('placeTranslation');
+  String get close => _f('close');
+  String get choosePages => _f('choosePages');
+  String pagesChosen(int n) => _f('pagesChosen', {'n': n});
+  String translateFailed(Object e) => _f('translateFailed', {'e': e});
+  String get unknownLanguage => _f('unknownLanguage');
+  String get zoomHint => _f('zoomHint');
 }
 
 class SDelegate extends LocalizationsDelegate<S> {
