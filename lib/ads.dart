@@ -4,12 +4,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// AdMob ids. These are Google's public TEST ids: they show sample ads and
-/// earn nothing. Replace them with your own from admob.google.com before
-/// publishing (and the App IDs in AndroidManifest.xml / Info.plist).
+/// AdMob ids. The Play Store build (`--dart-define=REAL_ADS=true`) shows real
+/// ads from the Pagelume banner unit. The APKs for installing by hand use
+/// Google's public test unit, so the owner's own phone never shows (or
+/// clicks) real ads, which AdMob forbids.
 class AdIds {
-  static String get banner =>
-      Platform.isIOS ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111';
+  static const real = bool.fromEnvironment('REAL_ADS');
+
+  static String get banner => Platform.isIOS
+      ? 'ca-app-pub-3940256099942544/2934735716'
+      : real
+      ? 'ca-app-pub-5301402884438261/2788460148'
+      : 'ca-app-pub-3940256099942544/6300978111';
 }
 
 /// True once ads may be requested (consent gathered and SDK started).

@@ -30,7 +30,7 @@ jobs:
       - run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 --build-number ${{ github.run_number }}
       # App bundle for Google Play, only once the upload key password is set.
       - if: env.UPLOAD_KEYSTORE_PASSWORD != ''
-        run: flutter build appbundle --release --build-number ${{ github.run_number }}
+        run: flutter build appbundle --release --dart-define=REAL_ADS=true --build-number ${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: pagelume-apk
