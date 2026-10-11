@@ -10,8 +10,8 @@ import 'settings.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = await Settings.load();
-  await initAds();
   runApp(PdfFlipReaderApp(settings: settings, sounds: FlipSounds(settings)));
+  initAds();
 }
 
 class PdfFlipReaderApp extends StatelessWidget {
