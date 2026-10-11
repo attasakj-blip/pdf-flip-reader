@@ -30,11 +30,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Upload key for Google Play. CI writes upload-keystore.jks from the
+    // UPLOAD_KEYSTORE_BASE64 secret and passes UPLOAD_KEYSTORE_PASSWORD.
+    // Without them, release builds use the debug key.
+    val uploadPassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD").orEmpty()
+    signingConfigs {
+        if (uploadPassword.isNotEmpty()) {
+            create("upload") {
+                storeFile = file("upload-keystore.jks")
+                storePassword = uploadPassword
+                keyAlias = "upload"
+                keyPassword = uploadPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (uploadPassword.isNotEmpty()) "upload" else "debug")
         }
     }
 }
