@@ -22,7 +22,7 @@ void main() {
     final d = pw.Document()..addPage(pw.Page(pageFormat: p.PdfPageFormat.a4, build: (_) => pw.Text('Hi')));
     final src = '${dir.path}/a.pdf', out = '${dir.path}/b.pdf';
     File(src).writeAsBytesSync(await d.save());
-    final box = Mark(page: 0, tool: MarkTool.rect, color: markColors[4], width: markWidths[2], dashed: false)
+    final box = Mark(page: 0, tool: MarkTool.rect, color: markColors[4], width: markWidths[4], dashed: false)
       ..points.addAll(const [Offset(0.2, 0.3), Offset(0.6, 0.5)]);
     final pen = Mark(page: 0, tool: MarkTool.pen, color: markColors[11], width: markWidths[1], dashed: false)
       ..points.addAll(const [Offset(0.1, 0.8), Offset(0.5, 0.8), Offset(0.9, 0.8)]);

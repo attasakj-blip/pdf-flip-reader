@@ -24,6 +24,11 @@ typedef TextBlock = ({String text, PageRect rect, double lineHeight, int turns})
 /// A page as shown on screen, as BGRA pixels at one pixel per point.
 typedef PagePixels = ({Uint8List bgra, int width, int height});
 
+/// One character of page text for highlighting: its box as the page is
+/// shown, the line it sits on (counted in reading order), and whether it is
+/// a space or line break.
+typedef PageChar = ({PageRect box, int line, bool blank});
+
 /// Editing (signatures, page deletion) goes through PDFium, which keeps the
 /// rest of the file (text, links, fonts) as it was. Viewing still uses pdfx.
 class PdfEditor {
@@ -76,6 +81,13 @@ class PdfEditor {
     }
     final lh = blocks.map((b) => b.lineHeight).reduce((a, b) => a + b) / blocks.length;
     return (text: blocks.map((b) => b.text).join('\n\n'), rect: r, lineHeight: lh, turns: turns);
+  });
+
+  /// Every character on page [pageIndex] in reading order, for snapping a
+  /// highlight to the text. Empty for scanned pages.
+  static Future<List<PageChar>> pageChars(String path, int pageIndex) => _read(path, pageIndex, (page, text) {
+    final turns = page.rotation.index;
+    return [for (final c in lineChars(_chars(page, text))) (box: _turn(c.box, turns), line: c.line, blank: c.blank)];
   });
 
   /// Renders page [pageIndex] as shown (rotation applied), white paper.
@@ -299,6 +311,32 @@ bool _noSpaces(String ch) {
 /// Groups characters into lines, then lines into paragraphs: a line joins
 /// the paragraph above when it is close below it, about the same size, and
 /// overlaps it sideways.
+/// Numbers the lines of [chars] (on the unrotated page, in text order): a
+/// new line starts when a character sits clearly above or below the line so
+/// far, or jumps far back to the left.
+List<PageChar> lineChars(List<TextChar> chars) {
+  final out = <PageChar>[];
+  var line = -1;
+  double? cy, lh, right;
+  for (final c in chars) {
+    final box = (left: c.l, top: c.t, width: c.r - c.l, height: c.b - c.t);
+    if (c.blank) {
+      out.add((box: box, line: math.max(0, line), blank: true));
+      continue;
+    }
+    final y = (c.t + c.b) / 2, h = c.b - c.t;
+    final newLine = cy == null || (y - cy).abs() > 0.6 * math.max(h, lh!) || c.l < right! - 2 * math.max(h, lh);
+    if (newLine) {
+      line++;
+      cy = y;
+      lh = h;
+    }
+    right = c.r;
+    out.add((box: box, line: line, blank: false));
+  }
+  return out;
+}
+
 List<TextBlock> groupBlocks(List<TextChar> chars) {
   // Lines.
   final lines = <List<TextChar>>[];

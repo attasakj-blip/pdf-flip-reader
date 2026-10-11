@@ -132,6 +132,11 @@ class S {
   String get discardChanges => _f('discardChanges');
   String get saveMenu => _f('saveMenu');
   String get unsavedMark => _f('unsavedMark');
+  String get toolTextHighlight => _f('toolTextHighlight');
+  String get noTextHere => _f('noTextHere');
+  String get edgeEditTitle => _f('edgeEditTitle');
+  String get edgeViewTitle => _f('edgeViewTitle');
+  String get edgeTip => _f('edgeTip');
   String get markup => _f('markup');
   String get markHint => _f('markHint');
   String get toolPen => _f('toolPen');

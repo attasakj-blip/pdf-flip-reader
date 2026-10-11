@@ -111,6 +111,9 @@ class Settings extends ChangeNotifier {
   bool get zoomTipShown => _prefs.getBool('zoomTipShown') ?? false;
   set zoomTipShown(bool v) => _set(() => _prefs.setBool('zoomTipShown', v));
 
+  bool get edgeTipShown => _prefs.getBool('edgeTipShown') ?? false;
+  set edgeTipShown(bool v) => _set(() => _prefs.setBool('edgeTipShown', v));
+
   List<RecentBook> get recents {
     final raw = _prefs.getString('recents');
     if (raw == null) return [];

@@ -6,6 +6,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.view.View
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
@@ -31,6 +34,35 @@ class MainActivity : FlutterActivity() {
     private var pendingCall: MethodCall? = null
     private val main = Handler(Looper.getMainLooper())
 
+    // With gesture navigation, swipes from the screen's side edges mean
+    // "back". In the reader the app keeps the middle of each edge (Android
+    // allows 200dp per edge) for its own edge menus.
+    private val edgeLayout = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> excludeEdges(v) }
+
+    private fun setEdgeSwipes(on: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val view = window.decorView
+        view.removeOnLayoutChangeListener(edgeLayout)
+        if (on) {
+            view.addOnLayoutChangeListener(edgeLayout)
+            excludeEdges(view)
+        } else {
+            view.systemGestureExclusionRects = emptyList()
+        }
+    }
+
+    private fun excludeEdges(view: View) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val d = resources.displayMetrics.density
+        val h = (200 * d).toInt()
+        val w = (40 * d).toInt()
+        val top = (view.height - h) / 2
+        view.systemGestureExclusionRects = listOf(
+            Rect(0, top, w, top + h),
+            Rect(view.width - w, top, view.width, top + h),
+        )
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pdf_flip_reader/files")
@@ -50,6 +82,10 @@ class MainActivity : FlutterActivity() {
                                 putExtra(Intent.EXTRA_TITLE, call.argument<String>("name"))
                                 addFlags(persistFlags)
                             })
+                        "edgeSwipes" -> {
+                            setEdgeSwipes(call.arguments as? Boolean ?: false)
+                            result.success(null)
+                        }
                         "createInNewFolder" -> startPicker(call, result, treeRequest,
                             Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply { addFlags(persistFlags) })
                         "write" -> background(result) {

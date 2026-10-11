@@ -10,11 +10,13 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'ambient.dart';
 import 'book_painter.dart';
+import 'edge_menu.dart';
 import 'edit_tools.dart';
 import 'flip_sounds.dart';
 import 'goto_dialog.dart';
 import 'l10n.dart';
 import 'markup.dart';
+import 'native_files.dart';
 import 'page_cache.dart';
 import 'page_clipboard.dart';
 import 'pdf_edit.dart';
@@ -38,7 +40,7 @@ enum _Tool { none, sign, area, translate, markup }
 
 enum _Gesture { none, turn, pan, zoom }
 
-class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderStateMixin {
+class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMixin {
   /// The book on screen; saving an edit as a new file switches to it.
   late RecentBook _book = widget.book;
 
@@ -103,6 +105,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       ..addStatusListener((s) {
         if (s == AnimationStatus.completed) _finishAnim();
       });
+    _edge = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+    NativeFiles.edgeSwipes(true);
     _load();
     _ambient.start();
   }
@@ -110,6 +114,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   @override
   void dispose() {
     _anim.dispose();
+    _edge.dispose();
+    NativeFiles.edgeSwipes(false);
     _focus.dispose();
     _ambient.dispose();
     final w = _working;
@@ -141,6 +147,9 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       if (!_settings.zoomTipShown && mounted) {
         _settings.zoomTipShown = true;
         _toast(S.of(context).zoomHint);
+      } else if (!_settings.edgeTipShown && mounted) {
+        _settings.edgeTipShown = true;
+        _toast(S.of(context).edgeTip);
       }
     } catch (e) {
       if (mounted) {
@@ -304,6 +313,132 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         if (complete) _index--;
       });
     }
+  }
+
+  // ---------------------------------------------------------- edge menus ---
+
+  late final AnimationController _edge;
+  // Which edge menu is out: true left, false right, null none.
+  bool? _edgeLeft;
+
+  bool get _edgeAllowed => _tool == _Tool.none && _cache != null && !_loading;
+
+  void _edgeDragStart(bool left) {
+    if (!_edgeAllowed || _flip != null) return;
+    setState(() => _edgeLeft = left);
+    _edge.value = 0;
+  }
+
+  void _edgeDragUpdate(bool left, DragUpdateDetails d) {
+    if (_edgeLeft != left) return;
+    _edge.value += (left ? d.delta.dx : -d.delta.dx) / EdgeMenu.panelWidth(MediaQuery.sizeOf(context));
+  }
+
+  void _edgeDragEnd(bool left, DragEndDetails d) {
+    if (_edgeLeft != left) return;
+    final v = (left ? 1 : -1) * d.velocity.pixelsPerSecond.dx;
+    if (v > 300 || (v > -300 && _edge.value > 0.35)) {
+      _edge.animateTo(1, curve: Curves.easeOutCubic);
+    } else {
+      _closeEdge();
+    }
+  }
+
+  void _openEdge(bool left) {
+    if (!_edgeAllowed) return;
+    setState(() => _edgeLeft = left);
+    _edge.animateTo(1, curve: Curves.easeOutCubic);
+  }
+
+  Future<void> _closeEdge() async {
+    await _edge.animateTo(0, curve: Curves.easeInCubic, duration: const Duration(milliseconds: 200));
+    if (mounted) setState(() => _edgeLeft = null);
+  }
+
+  /// Closes the menu, then runs [action].
+  void Function() _fromEdge(void Function() action) => () {
+    _closeEdge();
+    action();
+  };
+
+  // The middle half of each side edge; the bars' buttons sit above and
+  // below it.
+  Widget _edgeStrip(bool left) => Positioned(
+    top: MediaQuery.sizeOf(context).height * 0.25,
+    bottom: MediaQuery.sizeOf(context).height * 0.25,
+    left: left ? 0 : null,
+    right: left ? null : 0,
+    width: 24,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openEdge(left),
+      onHorizontalDragStart: (_) => _edgeDragStart(left),
+      onHorizontalDragUpdate: (d) => _edgeDragUpdate(left, d),
+      onHorizontalDragEnd: (d) => _edgeDragEnd(left, d),
+      child: EdgeHandle(left: left, visible: _controlsVisible),
+    ),
+  );
+
+  Widget _edgeMenu(bool left) {
+    final s = S.of(context);
+    return Positioned.fill(
+      child: left
+          ? EdgeMenu(
+              left: true,
+              progress: _edge,
+              title: s.edgeEditTitle,
+              icon: Icons.edit_document,
+              onClose: _closeEdge,
+              items: [
+                EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
+                EdgeMenuItem(
+                  icon: Icons.format_color_text,
+                  label: s.markup,
+                  onTap: _fromEdge(() => setState(() => _tool = _Tool.markup)),
+                ),
+                EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
+                EdgeMenuItem(
+                  icon: Icons.crop,
+                  label: s.copyArea,
+                  onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
+                ),
+                EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
+              ],
+            )
+          : EdgeMenu(
+              left: false,
+              progress: _edge,
+              title: s.edgeViewTitle,
+              icon: Icons.auto_awesome,
+              onClose: _closeEdge,
+              items: [
+                EdgeMenuItem(
+                  icon: Icons.translate,
+                  label: s.translateArea,
+                  onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
+                ),
+                EdgeMenuItem(
+                  icon: Icons.g_translate,
+                  label: s.translateDoc.replaceAll('…', ''),
+                  onTap: _fromEdge(_translateDoc),
+                ),
+                EdgeMenuItem(
+                  icon: Icons.auto_stories,
+                  label: s.coverAlone,
+                  on: _coverAlone,
+                  enabled: _twoPage,
+                  onTap: () => _setMode(coverAlone: !_coverAlone),
+                ),
+                EdgeMenuItem(icon: Icons.swap_horiz, label: s.rtlPages, on: _rtl, onTap: () => _setRtl(!_rtl)),
+                EdgeMenuItem(
+                  icon: Icons.dark_mode,
+                  label: s.nightMode,
+                  on: _settings.nightMode,
+                  onTap: () => setState(() => _settings.nightMode = !_settings.nightMode),
+                ),
+              ],
+            ),
+    );
   }
 
   // ---------------------------------------------------------------- zoom ---
@@ -880,6 +1015,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 child: MarkupLayer(
                   slots: _zoomedSlots,
                   marks: _marks,
+                  pageChars: (page) => PdfEditor.pageChars(_path, page),
                   zoom: _zoom,
                   pan: _screenPan,
                   onZoom: _setScreenZoom,
@@ -903,6 +1039,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
               Positioned.fill(
                 child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
               ),
+            if (cache != null && _tool == _Tool.none) ...[_edgeStrip(true), _edgeStrip(false)],
+            if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
             if (_loading) const Center(child: CircularProgressIndicator()),
           ],
         ),
@@ -1028,7 +1166,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 if (_working != null) _iconItem('save', Icons.save, S.of(context).saveMenu),
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
                 _iconItem('sign', Icons.draw, S.of(context).signDocument),
-                _iconItem('markup', Icons.edit_note, S.of(context).markup),
+                _iconItem('markup', Icons.format_color_text, S.of(context).markup),
                 _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
                 _iconItem('copyArea', Icons.crop, S.of(context).copyArea),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),

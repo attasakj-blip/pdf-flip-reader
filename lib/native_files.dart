@@ -31,6 +31,16 @@ class NativeFiles {
     return (uri: m['uri']!, name: m['name']!);
   }
 
+  /// Keeps the middle of the screen's side edges for the app's edge menus
+  /// (instead of Android's "back" swipe) while [on].
+  static Future<void> edgeSwipes(bool on) async {
+    try {
+      await _ch.invokeMethod('edgeSwipes', on);
+    } on MissingPluginException {
+      // Not on Android.
+    }
+  }
+
   /// Whether the app may still write to [uri].
   static Future<bool> canWrite(String uri) async => await _ch.invokeMethod<bool>('canWrite', {'uri': uri}) ?? false;
 
