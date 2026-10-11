@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -33,6 +34,8 @@ class ReaderScreen extends StatefulWidget {
 
 enum _Tool { none, sign, area }
 
+enum _Gesture { none, turn, pan, zoom }
+
 class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderStateMixin {
   /// The book on screen; saving an edit as a new file switches to it.
   late RecentBook _book = widget.book;
@@ -54,6 +57,20 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   _Tool _tool = _Tool.none;
   Signature? _signature;
   Size _bookSize = Size.zero;
+
+  // Pinch zoom. The book is drawn scaled by [_zoom] and moved by [_pan]
+  // (in the book's own coordinates, which are mirrored for right-to-left).
+  double _zoom = 1;
+  Offset _pan = Offset.zero;
+  double _renderZoom = 1;
+  _Gesture _gesture = _Gesture.none;
+  double _zoomAtStart = 1;
+  Offset _panAtStart = Offset.zero;
+  Offset _focalAtStart = Offset.zero;
+  // The scale recognizer reports velocity in screen coordinates; page turns
+  // need it in the (possibly mirrored or rotated) book's own.
+  VelocityTracker? _velocity;
+  final _clock = Stopwatch()..start();
   late final AmbientPlayer _ambient = AmbientPlayer(_settings);
   final _focus = FocusNode();
 
@@ -197,6 +214,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   void _goToPage(int page) {
     _anim.stop();
     setState(() {
+      _zoom = 1;
+      _pan = Offset.zero;
       _flip = null;
       _index = _spreadOf(page);
     });
@@ -214,18 +233,18 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   double _dragScale(BookLayout l, double screenWidth) =>
       math.max(1.0, (2 * l.pageWidth) / math.max(1.0, screenWidth * 0.9));
 
-  void _onDragStart(DragStartDetails d) {
+  void _onDragStart(Offset pos) {
     if (_anim.isAnimating || _layout == null) return;
     _dragDir = 0;
-    _dragStart = d.localPosition;
-    _bottom = d.localPosition.dy > _layout!.right.center.dy;
+    _dragStart = pos;
+    _bottom = pos.dy > _layout!.right.center.dy;
   }
 
-  void _onDragUpdate(DragUpdateDetails d, double screenWidth) {
+  void _onDragUpdate(Offset pos, double screenWidth) {
     final l = _layout;
     if (l == null || _anim.isAnimating) return;
     if (_dragDir == 0) {
-      final dx = d.localPosition.dx - _dragStart.dx;
+      final dx = pos.dx - _dragStart.dx;
       if (dx < -2 && _hasNext) {
         _dragDir = -1;
         _cornerStart = l.corner(_bottom);
@@ -237,7 +256,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       }
     }
     final k = _dragScale(l, screenWidth);
-    final p = l.clampCorner(_cornerStart + (d.localPosition - _dragStart) * k, _bottom);
+    final p = l.clampCorner(_cornerStart + (pos - _dragStart) * k, _bottom);
     setState(() => _flip = _flipWith(p));
   }
 
@@ -248,14 +267,14 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     return FlipState(from: from, to: to, corner: corner, bottom: _bottom);
   }
 
-  void _onDragEnd(DragEndDetails d) {
+  void _onDragEnd(Velocity velocity) {
     final l = _layout;
     final f = _flip;
     if (l == null || f == null || _dragDir == 0) {
       _dragDir = 0;
       return;
     }
-    final vx = d.velocity.pixelsPerSecond.dx; // in book space, like positions
+    final vx = velocity.pixelsPerSecond.dx; // in book space, like positions
     final pastSpine = f.corner.dx < l.spineX;
     if (_dragDir < 0) {
       final complete = vx < -250 || (pastSpine && vx < 400);
@@ -271,6 +290,71 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       });
     }
   }
+
+  // ---------------------------------------------------------------- zoom ---
+
+  static const _maxZoom = 5.0;
+
+  void _onScaleStart(ScaleStartDetails d) {
+    _zoomAtStart = _zoom;
+    _panAtStart = _pan;
+    _focalAtStart = d.localFocalPoint;
+    if (d.pointerCount >= 2) {
+      _gesture = _flip == null ? _Gesture.zoom : _Gesture.none;
+    } else if (_zoom > 1) {
+      _gesture = _Gesture.pan;
+    } else {
+      _gesture = _Gesture.turn;
+      _velocity = VelocityTracker.withKind(PointerDeviceKind.touch)
+        ..addPosition(d.sourceTimeStamp ?? _clock.elapsed, d.localFocalPoint);
+      _onDragStart(d.localFocalPoint);
+    }
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails d, Size size) {
+    switch (_gesture) {
+      case _Gesture.turn:
+        _velocity?.addPosition(d.sourceTimeStamp ?? _clock.elapsed, d.localFocalPoint);
+        _onDragUpdate(d.localFocalPoint, size.width);
+      case _Gesture.pan:
+        setState(() => _pan = _clampPan(_panAtStart + d.localFocalPoint - _focalAtStart, _zoom, size));
+      case _Gesture.zoom:
+        final z = (_zoomAtStart * d.scale).clamp(1.0, _maxZoom);
+        // Keep the spot under the fingers under the fingers.
+        final anchor = (_focalAtStart - _panAtStart) / _zoomAtStart;
+        setState(() {
+          _zoom = z;
+          _pan = _clampPan(d.localFocalPoint - anchor * z, z, size);
+        });
+      case _Gesture.none:
+        break;
+    }
+  }
+
+  void _onScaleEnd(ScaleEndDetails d) {
+    final g = _gesture;
+    _gesture = _Gesture.none;
+    if (g == _Gesture.turn) {
+      _onDragEnd(_velocity?.getVelocity() ?? Velocity.zero);
+      _velocity = null;
+    } else if (g == _Gesture.zoom) {
+      if (_zoom < 1.05) {
+        _resetZoom();
+      } else {
+        setState(() => _renderZoom = math.min(_zoom, 2.5));
+      }
+    }
+  }
+
+  /// Keeps the zoomed book covering the screen.
+  Offset _clampPan(Offset p, double z, Size size) =>
+      Offset(p.dx.clamp(size.width * (1 - z), 0.0), p.dy.clamp(size.height * (1 - z), 0.0));
+
+  void _resetZoom() => setState(() {
+    _zoom = 1;
+    _pan = Offset.zero;
+    _renderZoom = 1;
+  });
 
   void _animateCorner(Offset target, VoidCallback onDone) {
     final l = _layout!;
@@ -306,6 +390,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   /// Animated turn for buttons, keyboard and presentation clickers.
   void _turn(bool forward) {
+    if (_zoom > 1) _resetZoom();
     final l = _layout;
     if (l == null || _anim.isAnimating || _flip != null) return;
     if (forward ? !_hasNext : !_hasPrev) return;
@@ -367,6 +452,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   Future<void> _startSigning() async {
     if (!_idle) return;
+    _resetZoom();
     final sig = await showSignaturePad(context);
     if (sig == null || !mounted) return;
     setState(() {
@@ -395,6 +481,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   Future<void> _askDelete() async {
     if (!_idle) return;
+    _resetZoom();
     final s = S.of(context);
     final pages = _slots.map((e) => e.page).toList();
     final total = _cache!.pageCount;
@@ -477,6 +564,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   Future<void> _copyPage() async {
     if (!_idle) return;
+    _resetZoom();
     final s = S.of(context);
     final pages = _slots.map((e) => e.page).toList();
     var page = pages.first;
@@ -579,6 +667,12 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       final size = Size(box.maxWidth, box.maxHeight);
       _bookSize = size;
       final layout = BookLayout.compute(size, cache.aspect, _twoPage);
+      if (_layout != null && _layout!.right != layout.right) {
+        // New screen size or mode: start unzoomed.
+        _zoom = 1;
+        _pan = Offset.zero;
+        _renderZoom = 1;
+      }
       if (_layout != null && _layout!.right != layout.right && _flip != null) {
         // Screen rotated mid-turn: drop the turn rather than draw it wrong.
         _anim.stop();
@@ -586,28 +680,31 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         _dragDir = 0;
       }
       _layout = layout;
-      cache.setRenderWidth(layout.pageWidth * MediaQuery.of(context).devicePixelRatio);
+      // Sharper pages once a zoom has settled.
+      cache.setRenderWidth(layout.pageWidth * MediaQuery.of(context).devicePixelRatio * _renderZoom);
       _prefetch();
       final book = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _toggleControls,
-        onDoubleTap: _askPage,
-        onHorizontalDragStart: _onDragStart,
-        onHorizontalDragUpdate: (d) => _onDragUpdate(d, size.width),
-        onHorizontalDragEnd: _onDragEnd,
-        onHorizontalDragCancel: () {
-          if (_flip != null && !_anim.isAnimating) {
-            _onDragEnd(DragEndDetails(velocity: Velocity.zero));
-          }
-        },
-        child: CustomPaint(
-          size: size,
-          painter: BookPainter(
-            cache: _rtl ? _mirrored! : cache,
-            night: _settings.nightMode,
-            layout: layout,
-            spread: _spreads.isEmpty ? const Spread(null, null) : _spreads[_index],
-            flip: _flip,
+        onDoubleTap: _zoom > 1 ? _resetZoom : _askPage,
+        onScaleStart: _onScaleStart,
+        onScaleUpdate: (d) => _onScaleUpdate(d, size),
+        onScaleEnd: _onScaleEnd,
+        child: ClipRect(
+          child: Transform(
+            transform: Matrix4.identity()
+              ..translateByDouble(_pan.dx, _pan.dy, 0, 1)
+              ..scaleByDouble(_zoom, _zoom, 1, 1),
+            child: CustomPaint(
+              size: size,
+              painter: BookPainter(
+                cache: _rtl ? _mirrored! : cache,
+                night: _settings.nightMode,
+                layout: layout,
+                spread: _spreads.isEmpty ? const Spread(null, null) : _spreads[_index],
+                flip: _flip,
+              ),
+            ),
           ),
         ),
       );
@@ -662,7 +759,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 if (v == 'ambient') showAmbientSettings(context, _settings, _ambient);
                 if (v == 'sign') _startSigning();
                 if (v == 'copyPage') _copyPage();
-                if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
+                if (v == 'copyArea' && _idle) {
+                  _resetZoom();
+                  setState(() => _tool = _Tool.area);
+                }
                 if (v == 'delete') _askDelete();
                 if (v == 'files') Navigator.of(context).maybePop();
                 if (v == 'exit') SystemNavigator.pop();
@@ -745,7 +845,11 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                   onChanged: _flip != null
                       ? null
                       : (v) {
-                          setState(() => _index = v.round());
+                          setState(() {
+                            _index = v.round();
+                            _zoom = 1;
+                            _pan = Offset.zero;
+                          });
                           _prefetch();
                         },
                   onChangeEnd: (_) => _saveProgress(),

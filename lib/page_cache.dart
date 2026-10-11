@@ -44,22 +44,20 @@ class PageCache extends ChangeNotifier implements PageImageSource {
     return img;
   }
 
-  /// Changes the render resolution; drops cached pages that are too small.
+  /// Changes the render resolution. Pages already drawn smaller stay on
+  /// screen until their sharper version is ready.
   void setRenderWidth(double width) {
     final w = width.clamp(400, 2400).toDouble();
     if ((w - renderWidth).abs() < 50) return;
     renderWidth = w;
-    final small = _images.entries.where((e) => e.value.width < w * 0.8).map((e) => e.key).toList();
-    for (final k in small) {
-      _images.remove(k)?.dispose();
-    }
   }
 
   /// Ask for these pages, in priority order.
   void request(Iterable<int?> indices) {
     for (final i in indices) {
       if (i == null || i < 0 || i >= pageCount) continue;
-      if (_images.containsKey(i) || _queued.contains(i)) continue;
+      final have = _images[i];
+      if ((have != null && have.width >= renderWidth * 0.8) || _queued.contains(i)) continue;
       _queued.add(i);
       _chain = _chain.then((_) => _render(i)).catchError((Object e) {
         debugPrint('render page $i failed: $e');
@@ -103,7 +101,8 @@ class PageCache extends ChangeNotifier implements PageImageSource {
       }
       _images.remove(index)?.dispose();
       _images[index] = frame.image;
-      while (_images.length > maxEntries) {
+      // Also cap memory: zoomed pages are rendered much larger.
+      while (_images.length > maxEntries || (_images.length > 3 && _pixels > 60000000)) {
         final oldest = _images.keys.first;
         _images.remove(oldest)?.dispose();
       }
@@ -112,6 +111,8 @@ class PageCache extends ChangeNotifier implements PageImageSource {
       _queued.remove(index);
     }
   }
+
+  int get _pixels => _images.values.fold(0, (n, img) => n + img.width * img.height);
 
   @override
   void dispose() {
