@@ -60,5 +60,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest out/*.apk --title "Pagelume build ${GITHUB_RUN_NUMBER}" \
-            --notes "Download pagelume-arm64.apk for most phones, or pagelume-armv7.apk for very old phones." --latest
+          files=(out/*.apk)
+          aab=build/app/outputs/bundle/release/app-release.aab
+          if [ -f "$aab" ]; then
+            cp "$aab" pagelume.aab
+            ls -l pagelume.aab
+            files+=(pagelume.aab)
+          fi
+          gh release create latest "${files[@]}" --title "Pagelume build ${GITHUB_RUN_NUMBER}" \
+            --notes "Download pagelume-arm64.apk for most phones, or pagelume-armv7.apk for very old phones. pagelume.aab is for uploading to Google Play." --latest
