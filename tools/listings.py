@@ -10,11 +10,11 @@ import sys
 L = {}
 
 L['en'] = dict(
-    title='PDF Flip Reader: Book-like PDF',
+    title='Pagelume: Page-Flip PDF Reader',
     short='Flip PDFs like a real book on your phone, a projector or AI glasses.',
     full='''Turn any PDF into a book you can flip through.
 
-PDF Flip Reader shows your PDF as a real book. Pages curl under your finger as you swipe, with natural shading and shadows, so reading feels like holding paper.
+Pagelume shows your PDF as a real book. Pages curl under your finger as you swipe, with natural shading and shadows, so reading feels like holding paper.
 
 ★ REALISTIC PAGE TURNING
 • Swipe left for the next page, swipe right to go back
@@ -49,11 +49,11 @@ Your PDFs stay on your phone. Nothing is uploaded.
 Free with a small banner on the file screen only. Ads are limited to content suitable for general audiences, and never appear while you read.''')
 
 L['th'] = dict(
-    title='PDF Flip Reader อ่านแบบหนังสือ',
+    title='Pagelume อ่านแบบหนังสือ',
     short='อ่าน PDF เหมือนพลิกหนังสือจริง บนมือถือ โปรเจกเตอร์ หรือแว่น AI',
     full='''เปลี่ยน PDF ทุกไฟล์ให้เป็นหนังสือที่พลิกอ่านได้จริง
 
-PDF Flip Reader แสดง PDF ของคุณเหมือนหนังสือเล่มจริง หน้ากระดาษโค้งงอตามนิ้วที่ปัด มีแสงเงาเป็นธรรมชาติ อ่านแล้วรู้สึกเหมือนถือกระดาษอยู่ในมือ
+Pagelume แสดง PDF ของคุณเหมือนหนังสือเล่มจริง หน้ากระดาษโค้งงอตามนิ้วที่ปัด มีแสงเงาเป็นธรรมชาติ อ่านแล้วรู้สึกเหมือนถือกระดาษอยู่ในมือ
 
 ★ พลิกหน้าเสมือนจริง
 • ปัดซ้ายไปหน้าถัดไป ปัดขวาย้อนกลับ
@@ -88,11 +88,11 @@ PDF Flip Reader แสดง PDF ของคุณเหมือนหนั�
 ใช้ฟรี มีแบนเนอร์เล็กๆ เฉพาะหน้าเลือกไฟล์ โฆษณาจำกัดเฉพาะเนื้อหาสำหรับบุคคลทั่วไป และไม่แสดงระหว่างอ่าน''')
 
 L['de'] = dict(
-    title='PDF Flip Reader: PDF als Buch',
+    title='Pagelume: PDF als Buch',
     short='PDFs blättern wie ein echtes Buch: auf dem Handy, am Beamer oder mit KI-Brille.',
     full='''Verwandle jedes PDF in ein Buch zum Durchblättern.
 
-PDF Flip Reader zeigt dein PDF wie ein echtes Buch. Die Seiten wölben sich unter deinem Finger, mit natürlichen Schatten, als hieltest du Papier in der Hand.
+Pagelume zeigt dein PDF wie ein echtes Buch. Die Seiten wölben sich unter deinem Finger, mit natürlichen Schatten, als hieltest du Papier in der Hand.
 
 ★ ECHTES UMBLÄTTERN
 • Nach links wischen: nächste Seite, nach rechts: zurück
@@ -127,11 +127,11 @@ Deine PDFs bleiben auf deinem Handy. Es wird nichts hochgeladen.
 Kostenlos, mit einem kleinen Banner nur im Dateibildschirm. Die Werbung ist auf jugendfreie Inhalte beschränkt und erscheint nie beim Lesen.''')
 
 L['fr'] = dict(
-    title='PDF Flip Reader : PDF en livre',
+    title='Pagelume : PDF en livre',
     short='Feuilletez vos PDF comme un vrai livre : téléphone, projecteur ou lunettes IA.',
     full='''Transformez n'importe quel PDF en livre à feuilleter.
 
-PDF Flip Reader affiche votre PDF comme un vrai livre. La page se courbe sous votre doigt, avec des ombres naturelles, comme du vrai papier.
+Pagelume affiche votre PDF comme un vrai livre. La page se courbe sous votre doigt, avec des ombres naturelles, comme du vrai papier.
 
 ★ DES PAGES QUI SE TOURNENT VRAIMENT
 • Glissez à gauche pour la page suivante, à droite pour revenir
@@ -166,11 +166,11 @@ Vos PDF restent sur votre téléphone. Rien n'est envoyé en ligne.
 Gratuit, avec une petite bannière uniquement sur l'écran des fichiers. Les publicités sont limitées aux contenus tous publics et n'apparaissent jamais pendant la lecture.''')
 
 L['it'] = dict(
-    title='PDF Flip Reader: sfoglia PDF',
+    title='Pagelume: sfoglia PDF',
     short='Sfoglia i PDF come un vero libro: su telefono, proiettore o occhiali IA.',
     full='''Trasforma qualsiasi PDF in un libro da sfogliare.
 
-PDF Flip Reader mostra il tuo PDF come un vero libro. La pagina si piega sotto il dito, con ombre naturali, come la carta vera.
+Pagelume mostra il tuo PDF come un vero libro. La pagina si piega sotto il dito, con ombre naturali, come la carta vera.
 
 ★ SFOGLIA COME UN VERO LIBRO
 • Scorri a sinistra per la pagina successiva, a destra per tornare
@@ -205,11 +205,11 @@ I tuoi PDF restano sul telefono. Nulla viene caricato online.
 Gratis, con un piccolo banner solo nella schermata dei file. Gli annunci sono limitati a contenuti adatti a tutti e non compaiono mai durante la lettura.''')
 
 L['es'] = dict(
-    title='PDF Flip Reader: hojea tus PDF',
+    title='Pagelume: hojea tus PDF',
     short='Hojea tus PDF como un libro real: en el móvil, un proyector o gafas con IA.',
     full='''Convierte cualquier PDF en un libro para hojear.
 
-PDF Flip Reader muestra tu PDF como un libro de verdad. La página se curva bajo tu dedo, con sombras naturales, como papel real.
+Pagelume muestra tu PDF como un libro de verdad. La página se curva bajo tu dedo, con sombras naturales, como papel real.
 
 ★ PASA PÁGINAS DE VERDAD
 • Desliza a la izquierda para avanzar y a la derecha para volver
@@ -244,11 +244,11 @@ Tus PDF se quedan en tu teléfono. No se sube nada.
 Gratis, con un pequeño banner solo en la pantalla de archivos. Los anuncios se limitan a contenido apto para todo público y nunca aparecen mientras lees.''')
 
 L['pt'] = dict(
-    title='PDF Flip Reader: folheie PDFs',
+    title='Pagelume: folheie PDFs',
     short='Folheie PDFs como um livro de verdade: no celular, projetor ou óculos com IA.',
     full='''Transforme qualquer PDF em um livro para folhear.
 
-O PDF Flip Reader mostra seu PDF como um livro de verdade. A página se curva sob o seu dedo, com sombras naturais, como papel real.
+O Pagelume mostra seu PDF como um livro de verdade. A página se curva sob o seu dedo, com sombras naturais, como papel real.
 
 ★ VIRE AS PÁGINAS DE VERDADE
 • Deslize para a esquerda para avançar e para a direita para voltar
@@ -283,11 +283,11 @@ Seus PDFs ficam no seu celular. Nada é enviado.
 Grátis, com um pequeno banner apenas na tela de arquivos. Os anúncios são limitados a conteúdo livre para todos os públicos e nunca aparecem durante a leitura.''')
 
 L['ja'] = dict(
-    title='PDF Flip Reader 本のように読む',
+    title='Pagelume 本のように読む',
     short='PDFを本のようにめくって読む。スマホでも、プロジェクターやAIグラスでも。',
     full='''どんなPDFも、めくって読める本に。
 
-PDF Flip Reader は、PDFを本物の本のように表示します。指の動きに合わせてページがしなり、自然な陰影がつくので、紙をめくっているような感覚で読めます。
+Pagelume は、PDFを本物の本のように表示します。指の動きに合わせてページがしなり、自然な陰影がつくので、紙をめくっているような感覚で読めます。
 
 ★ リアルなページめくり
 ・左へスワイプで次のページ、右へスワイプで前のページ
@@ -322,11 +322,11 @@ PDFはスマホの中だけに保存され、アップロードされること�
 無料。小さなバナー広告はファイル選択画面にのみ表示されます。広告は全年齢向けの内容に限定され、読書中には表示されません。''')
 
 L['zh_Hant'] = dict(
-    title='PDF Flip Reader 像書一樣讀 PDF',
+    title='Pagelume 像書一樣讀 PDF',
     short='像真正的書一樣翻閱 PDF：手機、投影機、AI 眼鏡都適用。',
     full='''把任何 PDF 變成可以翻閱的書。
 
-PDF Flip Reader 會把你的 PDF 顯示成一本真正的書。頁面隨手指彎曲，搭配自然的光影，讀起來就像手裡拿著紙本。
+Pagelume 會把你的 PDF 顯示成一本真正的書。頁面隨手指彎曲，搭配自然的光影，讀起來就像手裡拿著紙本。
 
 ★ 逼真的翻頁效果
 ・向左滑翻到下一頁，向右滑回到上一頁
@@ -361,11 +361,11 @@ PDF 只存放在你的手機裡，不會上傳。
 免費使用，只有選擇檔案的畫面有小型橫幅廣告。廣告僅限適合所有年齡的內容，閱讀時絕不顯示。''')
 
 L['zh'] = dict(
-    title='PDF Flip Reader 像书一样读 PDF',
+    title='Pagelume 像书一样读 PDF',
     short='像真正的书一样翻阅 PDF：手机、投影仪、AI 眼镜都适用。',
     full='''把任何 PDF 变成可以翻阅的书。
 
-PDF Flip Reader 会把你的 PDF 显示成一本真正的书。页面随手指弯曲，搭配自然的光影，读起来就像手里拿着纸质书。
+Pagelume 会把你的 PDF 显示成一本真正的书。页面随手指弯曲，搭配自然的光影，读起来就像手里拿着纸质书。
 
 ★ 逼真的翻页效果
 ・向左滑翻到下一页，向右滑回到上一页
@@ -400,11 +400,11 @@ PDF 只保存在你的手机里，不会上传。
 免费使用，只有选择文件的界面有小型横幅广告。广告仅限适合所有年龄的内容，阅读时绝不显示。''')
 
 L['ko'] = dict(
-    title='PDF Flip Reader 책처럼 읽기',
+    title='Pagelume 책처럼 읽기',
     short='PDF를 진짜 책처럼 넘겨 읽기. 휴대폰, 프로젝터, AI 안경에서도.',
     full='''어떤 PDF든 넘겨 읽는 책으로.
 
-PDF Flip Reader는 PDF를 진짜 책처럼 보여 줍니다. 손가락을 따라 페이지가 휘어지고 자연스러운 그림자가 생겨서 종이를 넘기는 느낌으로 읽을 수 있습니다.
+Pagelume는 PDF를 진짜 책처럼 보여 줍니다. 손가락을 따라 페이지가 휘어지고 자연스러운 그림자가 생겨서 종이를 넘기는 느낌으로 읽을 수 있습니다.
 
 ★ 실감 나는 페이지 넘기기
 • 왼쪽으로 밀면 다음 페이지, 오른쪽으로 밀면 이전 페이지
@@ -439,11 +439,11 @@ PDF는 휴대폰에만 저장되며 업로드되지 않습니다.
 무료이며, 파일 선택 화면에만 작은 배너 광고가 있습니다. 광고는 전체 이용가 콘텐츠로 제한되고 읽는 중에는 표시되지 않습니다.''')
 
 L['ar'] = dict(
-    title='PDF Flip Reader قارئ كالكتاب',
+    title='Pagelume قارئ كالكتاب',
     short='تصفّح ملفات PDF كأنها كتاب حقيقي على الهاتف أو جهاز العرض أو النظارات الذكية.',
     full='''حوّل أي ملف PDF إلى كتاب تقلّب صفحاته.
 
-يعرض PDF Flip Reader ملفك كأنه كتاب حقيقي. تنثني الصفحة تحت إصبعك مع ظلال طبيعية، فتشعر وكأنك تمسك الورق بيدك.
+يعرض Pagelume ملفك كأنه كتاب حقيقي. تنثني الصفحة تحت إصبعك مع ظلال طبيعية، فتشعر وكأنك تمسك الورق بيدك.
 
 ★ تقليب واقعي للصفحات
 • اسحب لليسار للصفحة التالية ولليمين للرجوع
@@ -478,11 +478,11 @@ L['ar'] = dict(
 مجاني مع شريط إعلاني صغير في شاشة الملفات فقط. تقتصر الإعلانات على محتوى مناسب لجميع الأعمار ولا تظهر أبدًا أثناء القراءة.''')
 
 L['ru'] = dict(
-    title='PDF Flip Reader: PDF как книга',
+    title='Pagelume: PDF как книга',
     short='Листайте PDF как настоящую книгу: на телефоне, проекторе или в AI-очках.',
     full='''Превратите любой PDF в книгу, которую можно листать.
 
-PDF Flip Reader показывает PDF как настоящую книгу. Страница изгибается под пальцем, с естественными тенями, словно вы держите бумагу.
+Pagelume показывает PDF как настоящую книгу. Страница изгибается под пальцем, с естественными тенями, словно вы держите бумагу.
 
 ★ РЕАЛИСТИЧНОЕ ЛИСТАНИЕ
 • Смахните влево для следующей страницы, вправо для предыдущей

@@ -33,7 +33,7 @@ jobs:
         run: flutter build appbundle --release --build-number ${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
-          name: pdf-flip-reader-apk
+          name: pagelume-apk
           path: build/app/outputs/flutter-apk/app-release.apk
       # Also keep the latest APK on a branch named "apk", so it can be
       # downloaded straight from the repository page (or fetched by Claude).
@@ -41,10 +41,10 @@ jobs:
         run: |
           # The all-phones APK is over GitHub's 100 MB file limit (it stays
           # downloadable as the run's artifact); publish one APK per CPU type.
-          mkdir out && cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk out/pdf-flip-reader-arm64.apk
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk out/pdf-flip-reader-armv7.apk
+          mkdir out && cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk out/pagelume-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk out/pagelume-armv7.apk
           if [ -f build/app/outputs/bundle/release/app-release.aab ] && [ $(stat -c%s build/app/outputs/bundle/release/app-release.aab) -lt 99000000 ]; then
-            cp build/app/outputs/bundle/release/app-release.aab out/pdf-flip-reader.aab
+            cp build/app/outputs/bundle/release/app-release.aab out/pagelume.aab
           fi
           cd out
           git init -q -b apk

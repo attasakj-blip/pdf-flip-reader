@@ -25,7 +25,7 @@ class PdfFlipReaderApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) => MaterialApp(
-        title: 'PDF Flip Reader',
+        title: 'Pagelume',
         locale: settings.language == null ? null : S.localeOf(settings.language!),
         supportedLocales: S.supportedLocales,
         localizationsDelegates: const [

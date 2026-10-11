@@ -92,7 +92,7 @@ def gradient(w, h, top, bottom):
         d.line((0, y, w, y), fill=tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)))
     return im
 
-BROWN_T, BROWN_B = (93, 64, 55), (46, 33, 28)
+BG_T, BG_B = (52, 30, 112), (14, 10, 40)  # Pagelume night indigo
 
 def rounded(im, r):
     mask = Image.new('L', im.size, 0)
@@ -106,76 +106,28 @@ def drop(canvas, im, xy, r=40, blur=30, alpha=150):
     canvas.paste(sh, (xy[0] - blur * 2, xy[1] - blur * 2 + 16), sh)
     canvas.paste(im, xy, im)
 
-# ---------------------------------------------------------------- icon ---
-def icon(size=2048):
-    s = size
-    im = gradient(s, s, (141, 110, 99), (78, 52, 46)).convert('RGBA')
-    d = ImageDraw.Draw(im)
-    cx, cy = s / 2, s * 0.53
-    pw, ph = s * 0.34, s * 0.46
-    # book shadow
-    sh = Image.new('RGBA', (s, s), (0, 0, 0, 0))
-    ImageDraw.Draw(sh).rounded_rectangle((cx - pw - 30, cy - ph / 2 + 60, cx + pw + 30, cy + ph / 2 + 90), 60, fill=(0, 0, 0, 120))
-    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(60)))
-    d = ImageDraw.Draw(im)
-    # left page
-    d.polygon([(cx, cy - ph / 2 + 40), (cx - pw, cy - ph / 2), (cx - pw, cy + ph / 2), (cx, cy + ph / 2 + 40)], fill='#FFF8EC')
-    # right page (under)
-    d.polygon([(cx, cy - ph / 2 + 40), (cx + pw, cy - ph / 2), (cx + pw, cy + ph / 2), (cx, cy + ph / 2 + 40)], fill='#F3E3CC')
-    # text lines
-    for k in range(6):
-        y = cy - ph / 2 + 150 + k * 95
-        d.line((cx - pw + 90, y - 18, cx - 90, y + 2), fill='#C9B29A', width=26)
-    for k in range(6):
-        y = cy - ph / 2 + 150 + k * 95
-        d.line((cx + 90, y + 2, cx + pw - 90, y - 18), fill='#DCC7AE', width=26)
-    # turning page: lifted from bottom-right corner
-    fold_top = (cx + pw * 0.30, cy + ph / 2 + 28)
-    fold_side = (cx + pw, cy + ph / 2 - ph * 0.42)
-    tip = (cx + pw * 0.08, cy - ph * 0.05)
-    # shadow under curl
-    sh = Image.new('RGBA', (s, s), (0, 0, 0, 0))
-    ImageDraw.Draw(sh).polygon([fold_top, fold_side, (tip[0] - 20, tip[1] + 40)], fill=(60, 30, 20, 140))
-    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(40)))
-    d = ImageDraw.Draw(im)
-    # flap with gradient
-    flap = Image.new('RGBA', (s, s), (0, 0, 0, 0))
-    g = gradient(s, s, (255, 255, 255), (232, 214, 190)).convert('RGBA')
-    m = Image.new('L', (s, s), 0)
-    ImageDraw.Draw(m).polygon([fold_top, fold_side, tip], fill=255)
-    flap.paste(g, (0, 0), m)
-    im.alpha_composite(flap)
-    # cut the lifted corner off the right page (background shows under: page beneath)
-    d.polygon([fold_top, fold_side, (cx + pw, cy + ph / 2)], fill='#FFF8EC')
-    d.line([fold_top, fold_side], fill='#D8C3A8', width=10)
-    # spine
-    d.line((cx, cy - ph / 2 + 40, cx, cy + ph / 2 + 40), fill='#BFA88E', width=14)
-    return im.convert('RGB')
-
+# The icon is drawn by tools/make_icon.py (run it first with /home/claude/storekit).
+ICON = Image.open('/home/claude/storekit/icon_1024.png').convert('RGB')
 if LANG == 'th':
-  ic = icon()
-  ic.resize((512, 512), Image.LANCZOS).save(OUT + 'icon_512.png')
-  for name, px in [('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192)]:
-      p = f'/home/claude/pdf_flip_reader/android/app/src/main/res/mipmap-{name}/ic_launcher.png'
-      rounded(ic.resize((px, px), Image.LANCZOS), px // 5).save(p)
-  ic.resize((1024, 1024), Image.LANCZOS).save('/home/claude/storekit/icon_1024.png')
+  ICON.resize((512, 512), Image.LANCZOS).save(OUT + 'icon_512.png')
 
 # ------------------------------------------------------ feature graphic ---
-fg = gradient(1024, 500, BROWN_T, BROWN_B).convert('RGBA')
+fg = gradient(1024, 500, BG_T, BG_B).convert('RGBA')
 shot = Image.open(RAW + 'shot1_two_page_flip.png').convert('RGB')
 book = shot.crop((440, 10, 1960, 1070)).resize((500, 349), Image.LANCZOS)
 drop(fg, rounded(book, 12), (494, 76), r=12, blur=18, alpha=170)
 d = ImageDraw.Draw(fg)
-d.text((40, 120), 'PDF Flip Reader', font=font('Kanit-Bold.ttf', 46), fill='#FFF3E0')
+fg.paste(rounded(ICON.resize((92, 92), Image.LANCZOS), 20), (40, 96))
+d.text((148, 142), 'Pagelume', font=font('Kanit-Bold.ttf', 56), fill='#FFF3E0', anchor='lm')
 d.text((42, 205), C[5][0], font=fit(C[5][0], BOLD, 40, 430), fill='#FFCC80')
 d.text((42, 260), C[5][1], font=fit(C[5][1], BOLD, 36, 430), fill='#FFCC80')
-d.text((42, 340), C[5][2], font=fit(C[5][2], REG, 22, 430), fill='#D7CCC8')
+d.text((42, 340), C[5][2], font=fit(C[5][2], REG, 22, 430), fill='#C9C2E8')
 fg.convert('RGB').save(OUT + 'feature_graphic_1024x500.png')
 
 # --------------------------------------------------------- screenshots ---
 def portrait(name, title, sub, out):
     W, H = 1080, 1920
-    c = gradient(W, H, BROWN_T, BROWN_B).convert('RGBA')
+    c = gradient(W, H, BG_T, BG_B).convert('RGBA')
     d = ImageDraw.Draw(c)
     d.text((W / 2, 150), title, font=fit(title, BOLD, 66, W - 80), fill='#FFF3E0', anchor='mm')
     d.text((W / 2, 245), sub, font=fit(sub, REG, 40, W - 80), fill='#FFCC80', anchor='mm')
@@ -186,7 +138,7 @@ def portrait(name, title, sub, out):
 
 def landscape(name, title, sub, out):
     W, H = 1920, 1080
-    c = gradient(W, H, BROWN_T, BROWN_B).convert('RGBA')
+    c = gradient(W, H, BG_T, BG_B).convert('RGBA')
     d = ImageDraw.Draw(c)
     d.text((W / 2, 95), title, font=fit(title, BOLD, 62, W - 120), fill='#FFF3E0', anchor='mm')
     d.text((W / 2, 175), sub, font=fit(sub, REG, 38, W - 120), fill='#FFCC80', anchor='mm')

@@ -1,4 +1,4 @@
-# PDF Flip Reader
+# Pagelume
 
 แอป Flutter สำหรับอ่านไฟล์ PDF แบบหนังสือจริง (Android / iOS)
 

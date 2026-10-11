@@ -116,7 +116,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final s = S.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PDF Flip Reader'),
+        title: const Text('Pagelume'),
         actions: [
           IconButton(
             tooltip: s.language,
