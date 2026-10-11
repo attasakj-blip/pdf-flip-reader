@@ -41,6 +41,11 @@ enum _Gesture { none, turn, pan, zoom }
 class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderStateMixin {
   /// The book on screen; saving an edit as a new file switches to it.
   late RecentBook _book = widget.book;
+
+  /// Edits not saved yet live in this copy of the book; saving writes it out.
+  String? _working;
+  String? _editSuffix;
+  String get _path => _working ?? _book.localPath;
   PageCache? _cache;
   MirroredPages? _mirrored;
   bool _loading = true;
@@ -107,6 +112,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     _anim.dispose();
     _focus.dispose();
     _ambient.dispose();
+    final w = _working;
+    if (w != null) File(w).delete().ignore();
     _mirrored?.dispose();
     _cache?.dispose();
     WakelockPlus.disable();
@@ -117,7 +124,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   Future<void> _load({int? keepPage}) async {
     try {
-      final doc = await PdfDocument.openFile(_book.localPath);
+      final doc = await PdfDocument.openFile(_path);
       final cache = PageCache(doc);
       await cache.init();
       if (!mounted) {
@@ -484,7 +491,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     await _runEdit(
       keepPage: marks.first.page,
       suffix: 'marked',
-      edit: (dest) async => PdfEditor.stampAll(_book.localPath, dest, await markStamps(marks, aspects)),
+      edit: (dest) async => PdfEditor.stampAll(_path, dest, await markStamps(marks, aspects)),
     );
   }
 
@@ -522,7 +529,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         // Roughly 300 dpi for the signature image on a typical page.
         final px = (box.width / slot.rect.width * 2400).clamp(120, 1800).round();
         final img = await sig.toRgba(px);
-        await PdfEditor.stamp(_book.localPath, dest, slot.page, img.rgba, img.w, img.h, pageRectOf(slot, box));
+        await PdfEditor.stamp(_path, dest, slot.page, img.rgba, img.w, img.h, pageRectOf(slot, box));
       },
     );
   }
@@ -563,7 +570,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     await _runEdit(
       keepPage: math.min(first, total - del.length - 1),
       suffix: 'edited',
-      edit: (dest) => PdfEditor.deletePages(_book.localPath, dest, del),
+      edit: (dest) => PdfEditor.deletePages(_path, dest, del),
     );
   }
 
@@ -587,27 +594,80 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       File(dest).delete().ignore();
       return;
     }
-    if (!mounted) return;
-    setState(() => _loading = false);
-    final saved = await saveEdited(context, _settings, _book, dest, suffix: suffix);
-    File(dest).delete().ignore();
-    if (saved == null || !mounted) return;
-    final old = _book;
+    if (!mounted) {
+      File(dest).delete().ignore();
+      return;
+    }
+    final previous = _working;
+    _working = dest;
+    _editSuffix = _editSuffix == null ? suffix : 'edited';
+    await _reload(keepPage);
+    if (previous != null) File(previous).delete().ignore();
+  }
+
+  Future<void> _reload(int keepPage) async {
     _anim.stop();
     setState(() {
       _loading = true;
       _flip = null;
-      _book = saved.book..lastPage = keepPage;
+      _book.lastPage = keepPage;
       _mirrored?.dispose();
       _cache?.dispose();
       _mirrored = null;
       _cache = null;
     });
-    if (saved.replaced && old.localPath != saved.book.localPath) {
-      File(old.localPath).delete().ignore();
-    }
     await _load(keepPage: keepPage);
     _saveProgress();
+  }
+
+  /// Asks where to save the edits; true once they are saved.
+  Future<bool> _saveWorking() async {
+    final working = _working;
+    if (working == null) return true;
+    final saved = await saveEdited(context, _settings, _book, working, suffix: _editSuffix ?? 'edited');
+    if (saved == null || !mounted) return false;
+    final old = _book;
+    final keep = _firstVisiblePage;
+    _book = saved.book;
+    _working = null;
+    _editSuffix = null;
+    await _reload(keep);
+    File(working).delete().ignore();
+    if (saved.replaced && old.localPath != saved.book.localPath) File(old.localPath).delete().ignore();
+    return true;
+  }
+
+  /// Before leaving the book: offers to save unsaved edits. False means stay.
+  Future<bool> _confirmLeave() async {
+    if (_working == null) return true;
+    final s = S.of(context);
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.unsavedTitle),
+        content: Text(s.unsavedBody),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s.cancel)),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'discard'), child: Text(s.discardChanges)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(s.saveChanges)),
+        ],
+      ),
+    );
+    if (choice == 'save') return _saveWorking();
+    if (choice == 'discard') {
+      File(_working!).delete().ignore();
+      setState(() {
+        _working = null;
+        _editSuffix = null;
+      });
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _leave() async {
+    if (!await _confirmLeave() || !mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _copyPage() async {
@@ -661,7 +721,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     for (final slot in _zoomedSlots) {
       final part = slot.rect.intersect(area);
       if (part.width <= 0 || part.height <= 0) continue;
-      final b = await PdfEditor.textIn(_book.localPath, slot.page, pageRectOf(slot, part));
+      final b = await PdfEditor.textIn(_path, slot.page, pageRectOf(slot, part));
       if (b != null && b.text.trim().isNotEmpty) segments.add((page: slot.page, block: b));
     }
     if (!mounted) return;
@@ -697,9 +757,9 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
       edit: (dest) async {
         final stamps = <Stamp>[];
         for (var i = 0; i < segments.length; i++) {
-          stamps.addAll(await translatedStamps(_book.localPath, segments[i].page, [segments[i].block], [texts[i]]));
+          stamps.addAll(await translatedStamps(_path, segments[i].page, [segments[i].block], [texts[i]]));
         }
-        await PdfEditor.stampAll(_book.localPath, dest, stamps, replaceText: true);
+        await PdfEditor.stampAll(_path, dest, stamps, replaceText: true);
       },
     );
   }
@@ -725,7 +785,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         for (var k = 0; k < ask.pages.length; k++) {
           final page = ask.pages[k];
           message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}';
-          final blocks = translatable(await PdfEditor.textBlocks(_book.localPath, page));
+          final blocks = translatable(await PdfEditor.textBlocks(_path, page));
           if (blocks.isEmpty) continue;
           final out = await translateAll(
             [for (final b in blocks) b.text],
@@ -739,7 +799,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
             continue;
           }
           unknown = false;
-          stamps.addAll(await translatedStamps(_book.localPath, page, blocks, out));
+          stamps.addAll(await translatedStamps(_path, page, blocks, out));
         }
       });
     } catch (e) {
@@ -754,7 +814,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     await _runEdit(
       keepPage: ask.pages.first,
       suffix: 'translated_${ask.to}',
-      edit: (dest) => PdfEditor.stampAll(_book.localPath, dest, stamps, replaceText: true),
+      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps, replaceText: true),
     );
   }
 
@@ -785,6 +845,16 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final cache = _cache;
+    return PopScope(
+      canPop: _working == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: _scaffold(cache),
+    );
+  }
+
+  Widget _scaffold(PageCache? cache) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1B18),
       body: Focus(
@@ -902,18 +972,17 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
         bottom: false,
         child: Row(
           children: [
-            IconButton(
-              tooltip: S.of(context).backToFiles,
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+            IconButton(tooltip: S.of(context).backToFiles, icon: const Icon(Icons.arrow_back), onPressed: _leave),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_book.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(_pageLabel, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(
+                    _working == null ? _pageLabel : '$_pageLabel  •  ${S.of(context).unsavedMark}',
+                    style: TextStyle(fontSize: 12, color: _working == null ? Colors.white70 : Colors.amberAccent),
+                  ),
                 ],
               ),
             ),
@@ -942,8 +1011,13 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 if (v == 'delete') _askDelete();
                 if (v == 'translateArea' && _idle) setState(() => _tool = _Tool.translate);
                 if (v == 'translateDoc') _translateDoc();
-                if (v == 'files') Navigator.of(context).maybePop();
-                if (v == 'exit') SystemNavigator.pop();
+                if (v == 'files') _leave();
+                if (v == 'save') _saveWorking();
+                if (v == 'exit') {
+                  _confirmLeave().then((ok) {
+                    if (ok) SystemNavigator.pop();
+                  });
+                }
                 if (v == 'lang') {
                   showLanguagePicker(context, _settings.language).then((code) {
                     if (code != null) _settings.language = code.isEmpty ? null : code;
@@ -951,6 +1025,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 }
               },
               itemBuilder: (_) => [
+                if (_working != null) _iconItem('save', Icons.save, S.of(context).saveMenu),
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
                 _iconItem('sign', Icons.draw, S.of(context).signDocument),
                 _iconItem('markup', Icons.edit_note, S.of(context).markup),

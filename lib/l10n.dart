@@ -126,6 +126,12 @@ class S {
   String translateFailed(Object e) => _f('translateFailed', {'e': e});
   String get unknownLanguage => _f('unknownLanguage');
   String get zoomHint => _f('zoomHint');
+  String get unsavedTitle => _f('unsavedTitle');
+  String get unsavedBody => _f('unsavedBody');
+  String get saveChanges => _f('saveChanges');
+  String get discardChanges => _f('discardChanges');
+  String get saveMenu => _f('saveMenu');
+  String get unsavedMark => _f('unsavedMark');
   String get markup => _f('markup');
   String get markHint => _f('markHint');
   String get toolPen => _f('toolPen');
