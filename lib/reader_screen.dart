@@ -14,6 +14,7 @@ import 'edit_tools.dart';
 import 'flip_sounds.dart';
 import 'goto_dialog.dart';
 import 'l10n.dart';
+import 'markup.dart';
 import 'page_cache.dart';
 import 'page_clipboard.dart';
 import 'pdf_edit.dart';
@@ -33,7 +34,7 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-enum _Tool { none, sign, area, translate }
+enum _Tool { none, sign, area, translate, markup }
 
 enum _Gesture { none, turn, pan, zoom }
 
@@ -56,6 +57,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   bool _controlsVisible = true;
   _Tool _tool = _Tool.none;
+  final _marks = <Mark>[];
   Signature? _signature;
   Size _bookSize = Size.zero;
 
@@ -65,6 +67,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   Offset _pan = Offset.zero;
   double _renderZoom = 1;
   _Gesture _gesture = _Gesture.none;
+  bool _waitForLift = false; // a finger left over from a pinch
   double _zoomAtStart = 1;
   Offset _panAtStart = Offset.zero;
   Offset _focalAtStart = Offset.zero;
@@ -306,6 +309,8 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     _focalAtStart = d.localFocalPoint;
     if (d.pointerCount >= 2) {
       _gesture = _flip == null ? _Gesture.zoom : _Gesture.none;
+    } else if (_waitForLift) {
+      _gesture = _Gesture.none;
     } else if (_zoom > 1) {
       _gesture = _Gesture.pan;
     } else {
@@ -339,6 +344,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
   void _onScaleEnd(ScaleEndDetails d) {
     final g = _gesture;
     _gesture = _Gesture.none;
+    _waitForLift = d.pointerCount > 0 && (g == _Gesture.zoom || _waitForLift);
     if (g == _Gesture.turn) {
       _onDragEnd(_velocity?.getVelocity() ?? Velocity.zero);
       _velocity = null;
@@ -444,6 +450,44 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     ]..sort((a, b) => a.rect.left.compareTo(b.rect.left));
   }
 
+  /// [_slots] as they appear with the current zoom.
+  List<PageSlot> get _zoomedSlots {
+    final z = _zoom, sp = _screenPan;
+    return [
+      for (final s in _slots)
+        (
+          page: s.page,
+          rect: Rect.fromLTWH(s.rect.left * z + sp.dx, s.rect.top * z + sp.dy, s.rect.width * z, s.rect.height * z),
+        ),
+    ];
+  }
+
+  /// The zoom offset in screen space ([_pan] is in the book's own, mirrored
+  /// for right-to-left books).
+  Offset get _screenPan => _rtl ? Offset(_bookSize.width * (1 - _zoom) - _pan.dx, _pan.dy) : _pan;
+
+  void _setScreenZoom(double z, Offset screenPan) {
+    final p = _rtl ? Offset(_bookSize.width * (1 - z) - screenPan.dx, screenPan.dy) : screenPan;
+    setState(() {
+      _zoom = z;
+      _pan = _clampPan(p, z, _bookSize);
+    });
+  }
+
+  Future<void> _saveMarks() async {
+    final aspects = {for (final s in _slots) s.page: s.rect.height / s.rect.width};
+    final marks = List<Mark>.of(_marks);
+    setState(() {
+      _tool = _Tool.none;
+      _marks.clear();
+    });
+    await _runEdit(
+      keepPage: marks.first.page,
+      suffix: 'marked',
+      edit: (dest) async => PdfEditor.stampAll(_book.localPath, dest, await markStamps(marks, aspects)),
+    );
+  }
+
   bool get _idle => _flip == null && !_anim.isAnimating && !_loading && _cache != null;
 
   void _toast(String text) =>
@@ -457,7 +501,6 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   Future<void> _startSigning() async {
     if (!_idle) return;
-    _resetZoom();
     final sig = await showSignaturePad(context);
     if (sig == null || !mounted) return;
     setState(() {
@@ -592,7 +635,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
 
   Future<void> _copyArea(Rect area) async {
     setState(() => _tool = _Tool.none);
-    final slots = _slots;
+    final slots = _zoomedSlots;
     await _copy(() => PageClipboard(_cache!).areaPng(slots, area));
   }
 
@@ -615,7 +658,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
     setState(() => _tool = _Tool.none);
     final s = S.of(context);
     final segments = <({int page, TextBlock block})>[];
-    for (final slot in _slots) {
+    for (final slot in _zoomedSlots) {
       final part = slot.rect.intersect(area);
       if (part.width <= 0 || part.height <= 0) continue;
       final b = await PdfEditor.textIn(_book.localPath, slot.page, pageRectOf(slot, part));
@@ -757,9 +800,24 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
               Positioned.fill(
                 child: PlaceSignature(
                   signature: _signature!,
-                  slots: _slots,
+                  slots: _zoomedSlots,
                   onDone: _placeSignature,
                   onCancel: () => setState(() => _tool = _Tool.none),
+                ),
+              ),
+            if (_tool == _Tool.markup)
+              Positioned.fill(
+                child: MarkupLayer(
+                  slots: _zoomedSlots,
+                  marks: _marks,
+                  zoom: _zoom,
+                  pan: _screenPan,
+                  onZoom: _setScreenZoom,
+                  onDone: _saveMarks,
+                  onCancel: () => setState(() {
+                    _tool = _Tool.none;
+                    _marks.clear();
+                  }),
                 ),
               ),
             if (_tool == _Tool.translate)
@@ -879,15 +937,10 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
                 if (v == 'ambient') showAmbientSettings(context, _settings, _ambient);
                 if (v == 'sign') _startSigning();
                 if (v == 'copyPage') _copyPage();
-                if (v == 'copyArea' && _idle) {
-                  _resetZoom();
-                  setState(() => _tool = _Tool.area);
-                }
+                if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
+                if (v == 'markup' && _idle) setState(() => _tool = _Tool.markup);
                 if (v == 'delete') _askDelete();
-                if (v == 'translateArea' && _idle) {
-                  _resetZoom();
-                  setState(() => _tool = _Tool.translate);
-                }
+                if (v == 'translateArea' && _idle) setState(() => _tool = _Tool.translate);
                 if (v == 'translateDoc') _translateDoc();
                 if (v == 'files') Navigator.of(context).maybePop();
                 if (v == 'exit') SystemNavigator.pop();
@@ -900,6 +953,7 @@ class _ReaderScreenState extends State<ReaderScreen> with SingleTickerProviderSt
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
                 _iconItem('sign', Icons.draw, S.of(context).signDocument),
+                _iconItem('markup', Icons.edit_note, S.of(context).markup),
                 _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
                 _iconItem('copyArea', Icons.crop, S.of(context).copyArea),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),

@@ -234,10 +234,21 @@ class _PlaceSignatureState extends State<PlaceSignature> {
   @override
   void initState() {
     super.initState();
-    final page = widget.slots.last.rect;
-    final w = page.width * 0.4;
+    _box = Rect.zero;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_box != Rect.zero) return;
+    // Start in the middle of what is visible, on the page under it.
+    final screen = Offset.zero & MediaQuery.of(context).size;
+    final page = widget.slots.firstWhere((s) => s.rect.contains(screen.center), orElse: () => widget.slots.last).rect;
+    final visible = page.intersect(screen);
+    final area = visible.isEmpty ? page : visible;
+    final w = math.min(page.width * 0.4, area.width * 0.6);
     final h = w * widget.signature.aspect;
-    _box = Rect.fromLTWH(page.center.dx - w / 2, page.top + page.height * 0.72, w, h);
+    _box = Rect.fromCenter(center: area.center, width: w, height: h);
   }
 
   PageSlot? get _slot {

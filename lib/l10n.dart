@@ -126,6 +126,19 @@ class S {
   String translateFailed(Object e) => _f('translateFailed', {'e': e});
   String get unknownLanguage => _f('unknownLanguage');
   String get zoomHint => _f('zoomHint');
+  String get markup => _f('markup');
+  String get markHint => _f('markHint');
+  String get toolPen => _f('toolPen');
+  String get toolHighlighter => _f('toolHighlighter');
+  String get toolLine => _f('toolLine');
+  String get toolRect => _f('toolRect');
+  String get toolCircle => _f('toolCircle');
+  String get toolEllipse => _f('toolEllipse');
+  String get color => _f('color');
+  String get thickness => _f('thickness');
+  String get lineSolid => _f('lineSolid');
+  String get lineDashed => _f('lineDashed');
+  String get undo => _f('undo');
 }
 
 class SDelegate extends LocalizationsDelegate<S> {

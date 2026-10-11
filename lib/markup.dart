@@ -1,0 +1,422 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+
+import 'edit_tools.dart' show PageSlot, ToolBar;
+import 'l10n.dart';
+import 'pdf_edit.dart' show PageRect, Stamp;
+
+enum MarkTool { pen, highlighter, line, rect, circle, ellipse }
+
+/// Sixteen colours for everyday marking.
+const markColors = <Color>[
+  Color(0xFF000000), Color(0xFF555555), Color(0xFFAAAAAA), Color(0xFFFFFFFF), //
+  Color(0xFFE53935), Color(0xFF8E0000), Color(0xFFFF9800), Color(0xFFFFEB3B),
+  Color(0xFF8BC34A), Color(0xFF1B7F3B), Color(0xFF00BCD4), Color(0xFF1E88E5),
+  Color(0xFF1A237E), Color(0xFF8E24AA), Color(0xFFEC407A), Color(0xFF795548),
+];
+
+/// Line widths as fractions of the page width (about 1.5, 3 and 6 points
+/// on an A4 page).
+const markWidths = [0.0025, 0.005, 0.01];
+
+/// One drawn mark. Points are fractions of the page (origin top-left), so
+/// marks stay put when the page is zoomed or moved.
+class Mark {
+  Mark({required this.page, required this.tool, required this.color, required this.width, required this.dashed})
+    : points = [];
+
+  final int page;
+  final MarkTool tool;
+  final Color color;
+  final double width;
+  final bool dashed;
+  final List<Offset> points;
+
+  bool get isShape => tool != MarkTool.pen && tool != MarkTool.highlighter;
+
+  /// Draws the mark with the page occupying [page] on [canvas].
+  void paint(Canvas canvas, Rect page) {
+    if (points.isEmpty) return;
+    Offset at(Offset f) => Offset(page.left + f.dx * page.width, page.top + f.dy * page.height);
+    final highlight = tool == MarkTool.highlighter;
+    final paint = Paint()
+      ..color = highlight ? color.withValues(alpha: 0.35) : color
+      ..strokeWidth = width * page.width * (highlight ? 4 : 1)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = highlight ? StrokeCap.butt : StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path();
+    final a = at(points.first), b = at(points.last);
+    switch (tool) {
+      case MarkTool.pen:
+      case MarkTool.highlighter:
+        path.moveTo(a.dx, a.dy);
+        if (points.length == 1) {
+          path.lineTo(a.dx + 0.01, a.dy);
+        }
+        for (var i = 1; i < points.length - 1; i++) {
+          final p = at(points[i]), mid = (p + at(points[i + 1])) / 2;
+          path.quadraticBezierTo(p.dx, p.dy, mid.dx, mid.dy);
+        }
+        if (points.length > 1) path.lineTo(b.dx, b.dy);
+      case MarkTool.line:
+        path
+          ..moveTo(a.dx, a.dy)
+          ..lineTo(b.dx, b.dy);
+      case MarkTool.rect:
+        path.addRect(Rect.fromPoints(a, b));
+      case MarkTool.circle:
+      case MarkTool.ellipse:
+        path.addOval(Rect.fromPoints(a, b));
+    }
+    canvas.drawPath(dashed && !highlight ? _dash(path, paint.strokeWidth) : path, paint);
+  }
+
+  /// Box around the mark, in page fractions, with room for the line width.
+  PageRect bounds(double aspect) {
+    var l = points.first.dx, t = points.first.dy, r = l, b = t;
+    for (final p in points) {
+      l = math.min(l, p.dx);
+      t = math.min(t, p.dy);
+      r = math.max(r, p.dx);
+      b = math.max(b, p.dy);
+    }
+    final pad = width * (tool == MarkTool.highlighter ? 4 : 1);
+    final padY = pad / aspect; // width is relative to page width
+    return (left: l - pad, top: t - padY, width: r - l + 2 * pad, height: b - t + 2 * padY);
+  }
+}
+
+Path _dash(Path source, double width) {
+  final dash = math.max(4.0, width * 3), gap = math.max(3.0, width * 2);
+  final out = Path();
+  for (final m in source.computeMetrics()) {
+    var d = 0.0;
+    while (d < m.length) {
+      out.addPath(m.extractPath(d, math.min(d + dash, m.length)), Offset.zero);
+      d += dash + gap;
+    }
+  }
+  return out;
+}
+
+/// Turns the marks on each page into images for [PdfEditor.stampAll].
+/// [aspects] gives each page's height / width.
+Future<List<Stamp>> markStamps(List<Mark> marks, Map<int, double> aspects) async {
+  const pageWidthPx = 1700.0; // about 200 dpi on A4
+  final stamps = <Stamp>[];
+  for (final page in marks.map((m) => m.page).toSet()) {
+    final aspect = aspects[page] ?? 1.414;
+    final mine = marks.where((m) => m.page == page && m.points.isNotEmpty).toList();
+    if (mine.isEmpty) continue;
+    var box = mine.first.bounds(aspect);
+    for (final m in mine.skip(1)) {
+      final b = m.bounds(aspect);
+      final l = math.min(box.left, b.left), t = math.min(box.top, b.top);
+      final r = math.max(box.left + box.width, b.left + b.width), bt = math.max(box.top + box.height, b.top + b.height);
+      box = (left: l, top: t, width: r - l, height: bt - t);
+    }
+    // Keep it on the page.
+    final l = box.left.clamp(0.0, 1.0), t = box.top.clamp(0.0, 1.0);
+    final r = (box.left + box.width).clamp(0.0, 1.0), b = (box.top + box.height).clamp(0.0, 1.0);
+    if (r <= l || b <= t) continue;
+    box = (left: l, top: t, width: r - l, height: b - t);
+
+    final pagePx = Size(pageWidthPx, pageWidthPx * aspect);
+    final w = math.max(1, (box.width * pagePx.width).round()), h = math.max(1, (box.height * pagePx.height).round());
+    final rec = ui.PictureRecorder();
+    final canvas = Canvas(rec);
+    final where = Rect.fromLTWH(-box.left * pagePx.width, -box.top * pagePx.height, pagePx.width, pagePx.height);
+    for (final m in mine) {
+      m.paint(canvas, where);
+    }
+    final img = await rec.endRecording().toImage(w, h);
+    final data = await img.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+    img.dispose();
+    stamps.add((page: page, rgba: data!.buffer.asUint8List(), w: w, h: h, rect: box));
+  }
+  return stamps;
+}
+
+/// Drawing over the visible pages. One finger draws with the chosen tool;
+/// two fingers zoom and move the page (through [onZoom]).
+class MarkupLayer extends StatefulWidget {
+  const MarkupLayer({
+    super.key,
+    required this.slots,
+    required this.marks,
+    required this.zoom,
+    required this.pan,
+    required this.onZoom,
+    required this.onDone,
+    required this.onCancel,
+  });
+
+  /// Pages as they sit on screen right now (zoom included).
+  final List<PageSlot> slots;
+  final List<Mark> marks;
+  final double zoom;
+  final Offset pan;
+
+  /// New zoom and offset in screen space; the reader clamps and applies them.
+  final void Function(double zoom, Offset pan) onZoom;
+  final VoidCallback onDone;
+  final VoidCallback onCancel;
+
+  @override
+  State<MarkupLayer> createState() => _MarkupLayerState();
+}
+
+class _MarkupLayerState extends State<MarkupLayer> {
+  MarkTool _tool = MarkTool.pen;
+  Color _color = markColors[4];
+  int _width = 1;
+  bool _dashed = false;
+
+  Mark? _drawing;
+  PageSlot? _slot;
+  Offset _start = Offset.zero;
+  bool _zooming = false;
+  // After a pinch, the finger left behind must not start drawing.
+  bool _waitForLift = false;
+  double _zoomAtStart = 1;
+  Offset _panAtStart = Offset.zero, _focalAtStart = Offset.zero;
+
+  Offset _frac(PageSlot s, Offset p) {
+    final c = Offset(p.dx.clamp(s.rect.left, s.rect.right), p.dy.clamp(s.rect.top, s.rect.bottom));
+    return Offset((c.dx - s.rect.left) / s.rect.width, (c.dy - s.rect.top) / s.rect.height);
+  }
+
+  void _onStart(ScaleStartDetails d) {
+    _zooming = d.pointerCount >= 2;
+    if (_zooming) {
+      // A second finger: drop the mark the first finger had begun.
+      if (_drawing != null) setState(() => widget.marks.remove(_drawing));
+      _drawing = null;
+      _zoomAtStart = widget.zoom;
+      _panAtStart = widget.pan;
+      _focalAtStart = d.localFocalPoint;
+      return;
+    }
+    if (_waitForLift) return;
+    final p = d.localFocalPoint;
+    _slot = null;
+    for (final s in widget.slots) {
+      if (s.rect.contains(p)) _slot = s;
+    }
+    final s = _slot;
+    if (s == null) return;
+    _start = p;
+    final m = Mark(page: s.page, tool: _tool, color: _color, width: markWidths[_width], dashed: _dashed);
+    m.points.add(_frac(s, p));
+    if (m.isShape) m.points.add(_frac(s, p));
+    setState(() {
+      _drawing = m;
+      widget.marks.add(m);
+    });
+  }
+
+  void _onUpdate(ScaleUpdateDetails d) {
+    if (_zooming) {
+      final z = (_zoomAtStart * d.scale).clamp(1.0, 5.0);
+      final anchor = (_focalAtStart - _panAtStart) / _zoomAtStart;
+      widget.onZoom(z, d.localFocalPoint - anchor * z);
+      return;
+    }
+    final m = _drawing, s = _slot;
+    if (m == null || s == null) return;
+    var p = d.localFocalPoint;
+    if (_tool == MarkTool.circle) {
+      // A circle: the box is kept square on screen (and so on the page).
+      final dx = p.dx - _start.dx, dy = p.dy - _start.dy;
+      final side = math.max(dx.abs(), dy.abs());
+      p = _start + Offset(side * dx.sign, side * dy.sign);
+    }
+    setState(() {
+      if (m.isShape) {
+        m.points[1] = _frac(s, p);
+      } else {
+        m.points.add(_frac(s, p));
+      }
+    });
+  }
+
+  void _onEnd(ScaleEndDetails d) {
+    final m = _drawing;
+    // A tap with a shape tool leaves nothing worth keeping.
+    if (m != null && m.isShape && m.points.first == m.points.last) setState(() => widget.marks.remove(m));
+    if (_zooming && d.pointerCount > 0) _waitForLift = true;
+    if (d.pointerCount == 0) _waitForLift = false;
+    _drawing = null;
+    _zooming = false;
+  }
+
+  Future<void> _pickColor() async {
+    final c = await showModalBottomSheet<Color>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final c in markColors)
+                InkWell(
+                  onTap: () => Navigator.pop(ctx, c),
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: c == _color ? Colors.lightBlueAccent : Colors.white38,
+                        width: c == _color ? 3 : 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (c != null) setState(() => _color = c);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    Widget tool(MarkTool t, Widget icon, String tip) => IconButton(
+      tooltip: tip,
+      isSelected: _tool == t,
+      style: IconButton.styleFrom(backgroundColor: _tool == t ? Colors.lightBlueAccent.withValues(alpha: 0.3) : null),
+      icon: icon,
+      onPressed: () => setState(() => _tool = t),
+    );
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onScaleStart: _onStart,
+            onScaleUpdate: _onUpdate,
+            onScaleEnd: _onEnd,
+            child: CustomPaint(painter: _MarksPainter(widget.marks, widget.slots)),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: ToolBar(
+            hint: s.markHint,
+            confirm: s.done,
+            onCancel: widget.onCancel,
+            onConfirm: widget.marks.isEmpty ? null : widget.onDone,
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.8),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    tool(MarkTool.pen, const Icon(Icons.gesture), s.toolPen),
+                    tool(MarkTool.highlighter, const Icon(Icons.border_color), s.toolHighlighter),
+                    tool(MarkTool.line, const Icon(Icons.horizontal_rule), s.toolLine),
+                    tool(MarkTool.rect, const Icon(Icons.crop_square), s.toolRect),
+                    tool(MarkTool.circle, const Icon(Icons.circle_outlined), s.toolCircle),
+                    tool(MarkTool.ellipse, const _OvalIcon(), s.toolEllipse),
+                    const SizedBox(height: 32, child: VerticalDivider()),
+                    IconButton(
+                      tooltip: s.color,
+                      onPressed: _pickColor,
+                      icon: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: _color,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white70),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: s.thickness,
+                      onPressed: () => setState(() => _width = (_width + 1) % markWidths.length),
+                      icon: SizedBox(
+                        width: 26,
+                        height: 24,
+                        child: Center(
+                          child: Container(height: [2.0, 4.0, 8.0][_width], color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _dashed ? s.lineDashed : s.lineSolid,
+                      onPressed: () => setState(() => _dashed = !_dashed),
+                      icon: Icon(_dashed ? Icons.more_horiz : Icons.remove),
+                    ),
+                    IconButton(
+                      tooltip: s.undo,
+                      onPressed: widget.marks.isEmpty ? null : () => setState(() => widget.marks.removeLast()),
+                      icon: const Icon(Icons.undo),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OvalIcon extends StatelessWidget {
+  const _OvalIcon();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 24,
+    height: 15,
+    decoration: BoxDecoration(
+      border: Border.all(color: IconTheme.of(context).color ?? Colors.white, width: 2),
+      borderRadius: const BorderRadius.all(Radius.elliptical(12, 7.5)),
+    ),
+  );
+}
+
+class _MarksPainter extends CustomPainter {
+  _MarksPainter(this.marks, this.slots);
+  final List<Mark> marks;
+  final List<PageSlot> slots;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in slots) {
+      canvas.save();
+      canvas.clipRect(s.rect);
+      for (final m in marks) {
+        if (m.page == s.page) m.paint(canvas, s.rect);
+      }
+      canvas.restore();
+    }
+  }
+
+  // Marks are edited in place, so always repaint.
+  @override
+  bool shouldRepaint(_MarksPainter old) => true;
+}
