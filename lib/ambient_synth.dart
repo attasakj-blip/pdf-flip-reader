@@ -3,17 +3,18 @@ import 'dart:typed_data';
 
 /// Background sounds, made from scratch on the phone (noise, filters and
 /// simple instrument models), so there are no recordings and nothing to
-/// license. Each sound is a seamless loop: steady textures are cross-faded
-/// at the seam, slow changes repeat a whole number of times per loop, and
-/// individual events (drops, notes, chirps) wrap around the end.
+/// license. Each sound is a 30-second loop that never repeats inside itself
+/// and meets itself seamlessly: noise is cross-faded at the seam, slow
+/// swells wander freely but come back to where they started, and individual
+/// events (drops, notes, chirps) wrap around the end into the start.
 const ambientCount = 30;
 
 /// A 16-bit mono WAV of background sound [id] (0-29).
-Uint8List ambientWav(int id, {int sampleRate = 22050, double seconds = 24}) =>
+Uint8List ambientWav(int id, {int sampleRate = 22050, double seconds = 30}) =>
     _wav(ambientSamples(id, sampleRate: sampleRate, seconds: seconds), sampleRate);
 
 /// Samples of sound [id] in -1..1, levelled to a quiet background loudness.
-Float64List ambientSamples(int id, {int sampleRate = 22050, double seconds = 24}) {
+Float64List ambientSamples(int id, {int sampleRate = 22050, double seconds = 30}) {
   final g = _Gen(sampleRate, seconds, 1000 + id);
   final x = _sounds[id](g);
   return _level(_dcBlock(x, sampleRate));
@@ -73,8 +74,44 @@ class _Gen {
 
   double range(double a, double b) => a + (b - a) * r.nextDouble();
 
-  /// A steady texture: [next] is called once per sample for a little more
-  /// than the loop, and the overshoot is cross-faded into the start.
+  /// A smooth curve in -1..1 that wanders without repeating inside the loop
+  /// yet ends where it began: whole-loop waves [from]..[to] times round, with
+  /// random strengths and phases.
+  double Function(int i) drift([int from = 1, int to = 6]) {
+    final parts = [for (var h = from; h <= to; h++) (h, range(0.4, 1) / math.sqrt(h), range(0, 2 * math.pi))];
+    final norm = parts.fold(0.0, (s, p) => s + p.$2);
+    return (i) {
+      var v = 0.0;
+      for (final (h, a, ph) in parts) {
+        v += a * math.sin(cyc(i, h) + ph);
+      }
+      return v / norm;
+    };
+  }
+
+  /// The wind's strength (about 0.15..0.95) at sample [i]; one curve per
+  /// sound, so rustles and chimes follow the same gusts as the wind.
+  double gust(int i) => 0.55 + 0.4 * (_gust ??= drift(1, 9))(i);
+  double Function(int)? _gust;
+
+  /// [count] event times spread over the loop, each gap varying by [jitter]
+  /// around the even spacing, starting at [start].
+  List<double> spaced(int count, double jitter, [double start = 0]) {
+    final gaps = [for (var k = 0; k < count; k++) range(1 - jitter, 1 + jitter)];
+    final sum = gaps.fold(0.0, (a, b) => a + b);
+    final out = <double>[];
+    var t = start;
+    for (final gap in gaps) {
+      out.add(t);
+      t += gap * seconds / sum;
+    }
+    return out;
+  }
+
+  /// A noise texture: [next] is called once per sample for a little more
+  /// than the loop, and the overshoot is cross-faded into the start. Only
+  /// for noise: a tone that already repeats over the loop would swell at the
+  /// seam, so add those afterwards.
   Float64List bed(double Function(int i) next) {
     final fade = sr; // one second
     final raw = Float64List(n + fade);
@@ -300,16 +337,23 @@ double _midi(num m) => 440 * math.pow(2, (m - 69) / 12).toDouble();
 Float64List _ocean(_Gen g) {
   final lp = _Bq.lp(800, 0.7, g.sr), rumble = _Lp(120, g.sr), br = _Brown();
   const lo = 0.06;
-  return g.bed((i) {
-    // Three waves per loop, unevenly spaced: a quick rise, then a long wash.
-    final phase = (3 * i / g.n + 0.08 * math.sin(g.cyc(i, 1))) % 1.0;
-    final p = phase < 0 ? phase + 1 : phase;
-    final e = p < 0.3
-        ? lo + (1 - lo) * math.pow(p / 0.3, 2)
-        : lo + (1 - lo) * (math.exp(-(p - 0.3) * 4) - math.exp(-2.8)) / (1 - math.exp(-2.8));
+  // Four waves of different lengths and sizes: a quick rise, then a long wash.
+  final starts = [for (final t in g.spaced(4, 0.3)) (t * g.sr).round(), g.n];
+  final heights = [for (var k = 0; k < 4; k++) g.range(0.55, 1.0)];
+  final swell = g.drift(1, 4);
+  var w = 0;
+  return g.bed((raw) {
+    final i = raw % g.n;
+    if (i == 0) w = 0;
+    while (i >= starts[w + 1]) {
+      w++;
+    }
+    final p = (i - starts[w]) / (starts[w + 1] - starts[w]);
+    final shape = p < 0.3 ? math.pow(p / 0.3, 2) : (math.exp(-(p - 0.3) * 4) - math.exp(-2.8)) / (1 - math.exp(-2.8));
+    final e = lo + (1 - lo) * heights[w] * shape;
     if (i % 32 == 0) lp.lp(300 + 2200 * e, 0.7, g.sr);
     final surf = lp.run(g.white()) * (0.2 + 0.8 * e);
-    return surf + rumble.run(br.run(g.white())) * 0.5;
+    return surf + rumble.run(br.run(g.white())) * (0.5 + 0.15 * swell(i));
   });
 }
 
@@ -325,7 +369,8 @@ Float64List _drop(_Gen g, {double f = 0, double len = 0.004}) {
 
 Float64List _rainBed(_Gen g, double bright) {
   final pink = _Pink(), hp = _Bq.hp(500, 0.7, g.sr), lp = _Bq.lp(2500 + 4000 * bright, 0.7, g.sr);
-  return g.bed((i) => lp.run(hp.run(pink.run(g.white()))) * (1 + 0.1 * math.sin(g.cyc(i, 2))));
+  final d = g.drift();
+  return g.bed((i) => lp.run(hp.run(pink.run(g.white()))) * (1 + 0.15 * d(i)));
 }
 
 Float64List _lightRain(_Gen g) {
@@ -333,7 +378,8 @@ Float64List _lightRain(_Gen g) {
   for (var i = 0; i < out.length; i++) {
     out[i] *= 0.6;
   }
-  for (final t in g.times(70)) {
+  final busy = g.drift(1, 5);
+  for (final t in g.times(85, (t) => 0.75 + 0.25 * busy((t * g.sr).round()))) {
     g.add(out, t, _drop(g), g.range(0.05, 0.35));
   }
   return out;
@@ -371,19 +417,20 @@ Float64List _thunderstorm(_Gen g) {
   for (var i = 0; i < out.length; i++) {
     out[i] *= 0.7;
   }
-  g.add(out, g.range(1, 4), _thunder(g, 9), 2.2);
-  g.add(out, g.range(13, 16), _thunder(g, 8), 1.4);
+  // Three rolls of different sizes at uneven times; the last may run over
+  // the end and finish at the start.
+  final at = g.spaced(3, 0.35, g.range(0.5, 3));
+  final sizes = [(9.0, 2.2), (6.0, 1.0), (8.0, 1.6)]..shuffle(g.r);
+  for (var k = 0; k < 3; k++) {
+    g.add(out, at[k], _thunder(g, sizes[k].$1), sizes[k].$2);
+  }
   return out;
 }
-
-/// Gusts that repeat over the loop.
-double _gust(_Gen g, int i) =>
-    0.55 + 0.25 * math.sin(g.cyc(i, 2) + 0.7) + 0.15 * math.sin(g.cyc(i, 5) + 2.1) + 0.05 * math.sin(g.cyc(i, 11));
 
 Float64List _gentleWind(_Gen g) {
   final pink = _Pink(), bp = _Bq.bp(400, 0.8, g.sr);
   return g.bed((i) {
-    final e = _gust(g, i);
+    final e = g.gust(i);
     if (i % 32 == 0) bp.bp(250 + 500 * e, 0.8, g.sr);
     return bp.run(pink.run(g.white())) * math.pow(e, 1.5);
   });
@@ -392,7 +439,7 @@ Float64List _gentleWind(_Gen g) {
 Float64List _mountainWind(_Gen g) {
   final pink = _Pink(), bp = _Bq.bp(400, 0.7, g.sr), whistle = _Bq.bp(600, 18, g.sr);
   return g.bed((i) {
-    final e = _gust(g, i);
+    final e = g.gust(i);
     if (i % 32 == 0) {
       bp.bp(200 + 600 * e, 0.7, g.sr);
       whistle.bp(420 + 520 * e, 18, g.sr);
@@ -410,7 +457,7 @@ Float64List _leaves(_Gen g) {
     out[i] = bed[i] * 0.5;
   }
   // Rustles: short grains of bright noise, more of them in gusts.
-  for (final t in g.times(45, (t) => _gust(g, (t * g.sr).round()) - 0.2)) {
+  for (final t in g.times(45, (t) => g.gust((t * g.sr).round()) - 0.2)) {
     final len = g.range(0.02, 0.09);
     g.add(out, t, g.tone(len, (s) => lp.run(hp.run(g.white())) * math.sin(math.pi * s / len)), g.range(0.1, 0.5));
   }
@@ -426,7 +473,8 @@ Float64List _bubble(_Gen g, double f0, double len, double rise) {
 
 Float64List _brook(_Gen g) {
   final lp = _Bq.lp(1500, 0.7, g.sr), hp = _Bq.hp(200, 0.7, g.sr), pink = _Pink();
-  final out = g.bed((i) => lp.run(hp.run(pink.run(g.white()))) * (0.8 + 0.2 * math.sin(g.cyc(i, 3))));
+  final d = g.drift(1, 8);
+  final out = g.bed((i) => lp.run(hp.run(pink.run(g.white()))) * (0.8 + 0.2 * d(i)));
   for (final t in g.times(55)) {
     g.add(out, t, _bubble(g, g.range(500, 2200), g.range(0.012, 0.05), g.range(0.3, 1.2)), g.range(0.02, 0.12));
   }
@@ -435,10 +483,8 @@ Float64List _brook(_Gen g) {
 
 Float64List _waterfall(_Gen g) {
   final pink = _Pink(), lp = _Bq.lp(3200, 0.7, g.sr), rumble = _Lp(150, g.sr), br = _Brown();
-  return g.bed((i) {
-    final w = g.white();
-    return lp.run(pink.run(w)) * 1.2 + rumble.run(br.run(g.white())) * 0.6;
-  });
+  final d = g.drift(2, 9);
+  return g.bed((i) => lp.run(pink.run(g.white())) * 1.2 * (1 + 0.08 * d(i)) + rumble.run(br.run(g.white())) * 0.6);
 }
 
 Float64List _campfire(_Gen g) {
@@ -469,8 +515,9 @@ Float64List _crickets(_Gen g) {
   final pink = _Pink(), lp = _Lp(600, g.sr);
   final out = g.bed((i) => lp.run(pink.run(g.white())) * 0.15);
   for (final (f, every, gain) in [(4200.0, 0.5, 1.0), (3700.0, 0.75, 0.6), (4600.0, 0.6, 0.35)]) {
-    var t = g.range(0, every);
-    while (t < g.seconds) {
+    // Steady chirping, evenly round the seam too, that swells and fades.
+    final mood = g.drift(1, 5);
+    for (final t in g.spaced((g.seconds / every).round(), 0.08, g.range(0, every))) {
       final chirp = g.tone(0.14, (s) {
         // Three quick pulses.
         final k = (s / 0.045).floor();
@@ -478,8 +525,7 @@ Float64List _crickets(_Gen g) {
         final pulse = k < 3 && ph < 0.025 ? math.sin(math.pi * ph / 0.025) : 0.0;
         return math.sin(2 * math.pi * f * s) * pulse;
       });
-      g.add(out, t, chirp, gain * g.range(0.7, 1.0));
-      t += every * g.range(0.92, 1.08);
+      g.add(out, t, chirp, gain * g.range(0.7, 1.0) * (0.65 + 0.35 * mood((t * g.sr).round())));
     }
   }
   return out;
@@ -548,9 +594,8 @@ Float64List _windowRain(_Gen g) {
 
 Float64List _underwater(_Gen g) {
   final br = _Brown(), lp = _Bq.lp(420, 0.9, g.sr);
-  final out = g.bed(
-    (i) => lp.run(br.run(g.white())) * (0.8 + 0.2 * math.sin(g.cyc(i, 3)) + 0.1 * math.sin(g.cyc(i, 7))),
-  );
+  final d = g.drift(1, 7);
+  final out = g.bed((i) => lp.run(br.run(g.white())) * (0.85 + 0.25 * d(i)));
   for (final t in g.times(1.2)) {
     var at = t;
     for (var k = 0; k < 2 + g.r.nextInt(6); k++) {
@@ -581,18 +626,20 @@ Float64List _brown(_Gen g) {
 Float64List _fan(_Gen g) {
   final p = _Pink(), lp = _Bq.lp(1400, 0.7, g.sr), hp = _Bq.hp(70, 0.7, g.sr);
   final blade = g.q(13), hum = g.q(100);
-  return g.bed((i) {
+  final out = g.bed((i) => lp.run(hp.run(p.run(g.white()))) * (1 + 0.06 * math.sin(2 * math.pi * blade * i / g.sr)));
+  for (var i = 0; i < g.n; i++) {
     final t = i / g.sr;
-    final air = lp.run(hp.run(p.run(g.white()))) * (1 + 0.06 * math.sin(2 * math.pi * blade * t));
-    return air + 0.02 * math.sin(2 * math.pi * hum * t) + 0.01 * math.sin(4 * math.pi * hum * t);
-  });
+    out[i] += 0.02 * math.sin(2 * math.pi * hum * t) + 0.01 * math.sin(4 * math.pi * hum * t);
+  }
+  return out;
 }
 
 Float64List _train(_Gen g) {
   final br = _Brown(), lp = _Bq.lp(320, 0.7, g.sr);
-  final out = g.bed((i) => lp.run(br.run(g.white())) * (0.9 + 0.1 * math.sin(g.cyc(i, 4))));
+  final d = g.drift(1, 5);
+  final out = g.bed((i) => lp.run(br.run(g.white())) * (0.9 + 0.12 * d(i)));
   Float64List clack(double gain) {
-    final bp = _Bq.bp(1600, 2, g.sr);
+    final bp = _Bq.bp(g.range(1400, 1800), 2, g.sr);
     return g.tone(
       0.15,
       (t) =>
@@ -601,11 +648,12 @@ Float64List _train(_Gen g) {
     );
   }
 
-  final beat = g.seconds / 20; // 1.2 s at the default loop
-  for (var k = 0; k < 20; k++) {
-    final a = k.isEven ? 1.0 : 0.8;
-    g.add(out, k * beat, clack(a));
-    g.add(out, k * beat + 0.18, clack(a * 0.85));
+  // Wheels over rail joints about every 1.2 s, never quite evenly.
+  final joints = g.spaced(25, 0.03);
+  for (var k = 0; k < joints.length; k++) {
+    final a = (k.isEven ? 1.0 : 0.8) * g.range(0.85, 1.0);
+    g.add(out, joints[k], clack(a));
+    g.add(out, joints[k] + g.range(0.17, 0.19), clack(a * 0.85));
   }
   return out;
 }
@@ -641,11 +689,11 @@ Float64List _heartbeat(_Gen g) {
     });
   }
 
-  final beats = g.seconds.round(); // 60 a minute
-  for (var k = 0; k < beats; k++) {
-    final t = k * g.seconds / beats;
-    g.add(out, t, thump(90, 45, 1));
-    g.add(out, t + 0.3, thump(110, 55, 0.65));
+  // 60 a minute, with the small give of a real heart.
+  for (final t in g.spaced(g.seconds.round(), 0.04)) {
+    final a = g.range(0.9, 1.0);
+    g.add(out, t, thump(90, 45, a));
+    g.add(out, t + g.range(0.28, 0.32), thump(110, 55, 0.65 * a));
   }
   return out;
 }
@@ -668,12 +716,14 @@ Float64List _struck(_Gen g, double f, List<double> ratios, List<double> amps, Li
 
 Float64List _singingBowl(_Gen g) {
   final out = Float64List(g.n);
-  final pitches = [196.0, 247.0, 220.0];
-  for (var k = 0; k < 3; k++) {
+  final pitches = [196.0, 247.0, 220.0, 165.0];
+  final at = g.spaced(4, 0.25, 0.5);
+  for (var k = 0; k < 4; k++) {
     g.add(
       out,
-      k * g.seconds / 3 + 0.5,
+      at[k],
       _struck(g, pitches[k], [1, 2.76, 5.40, 8.93], [1, 0.45, 0.2, 0.08], [9, 6, 3.5, 2]),
+      g.range(0.75, 1.0),
     );
   }
   return _reverb(g, out, mix: 0.25, size: 1.2);
@@ -685,7 +735,7 @@ Float64List _windChimes(_Gen g) {
     out[i] *= 0.15;
   }
   final tubes = [72, 74, 77, 79, 81, 84].map((m) => _midi(m + 12)).toList();
-  for (final t in g.times(2.2, (t) => _gust(g, (t * g.sr).round()))) {
+  for (final t in g.times(2.2, (t) => g.gust((t * g.sr).round()))) {
     final f = tubes[g.r.nextInt(tubes.length)];
     g.add(out, t, _struck(g, f, [1, 2.76, 5.40], [1, 0.35, 0.12], [2.5, 1.2, 0.5], beat: 1.5), g.range(0.2, 0.6));
   }
@@ -709,7 +759,8 @@ const _penta = [60, 62, 64, 67, 69, 72, 74, 76, 79, 81];
 
 Float64List _piano(_Gen g) {
   final out = Float64List(g.n);
-  final beats = g.seconds.round(); // one a second
+  const beats = 32; // eight to a chord
+  final beat = g.seconds / beats;
   final chords = [
     [48, 55, 64],
     [45, 52, 60],
@@ -718,17 +769,17 @@ Float64List _piano(_Gen g) {
   ];
   var idx = 5;
   for (var b = 0; b < beats; b++) {
-    if (b % (beats ~/ 4) == 0) {
-      for (final m in chords[(b ~/ (beats ~/ 4)) % 4]) {
-        g.add(out, b + 0.0, _pianoNote(g, _midi(m), 5), 0.22);
+    if (b % 8 == 0) {
+      for (final m in chords[b ~/ 8]) {
+        g.add(out, b * beat, _pianoNote(g, _midi(m), 5), 0.22);
       }
     }
     if (g.r.nextDouble() < 0.75) {
       idx = (idx + g.r.nextInt(5) - 2).clamp(2, _penta.length - 1);
-      g.add(out, b + 0.0, _pianoNote(g, _midi(_penta[idx]), 3.5), g.range(0.3, 0.45));
+      g.add(out, b * beat, _pianoNote(g, _midi(_penta[idx]), 3.5), g.range(0.3, 0.45));
       if (g.r.nextDouble() < 0.25) {
         final m = _penta[(idx + 1).clamp(0, _penta.length - 1)];
-        g.add(out, b + 0.5, _pianoNote(g, _midi(m), 3), 0.25);
+        g.add(out, (b + 0.5) * beat, _pianoNote(g, _midi(m), 3), 0.25);
       }
     }
   }
@@ -793,10 +844,17 @@ Float64List _harp(_Gen g) {
   ];
   final step = g.seconds / 64;
   for (var c = 0; c < 4; c++) {
+    // Each chord is broken its own way: from the bass, wandering up and down.
     final notes = chords[c];
-    final order = [...notes, ...notes.reversed];
+    var j = 0;
     for (var k = 0; k < 16; k++) {
-      g.add(out, (c * 16 + k) * step, _pluck(g, _midi(order[k]), 3), k == 0 ? 0.7 : 0.45);
+      if (k > 0) {
+        j += const [-2, -1, 1, 1, 2, 2][g.r.nextInt(6)];
+        if (j < 0) j = -j;
+        if (j >= notes.length) j = 2 * (notes.length - 1) - j;
+        if (g.r.nextDouble() < 0.1) continue;
+      }
+      g.add(out, (c * 16 + k) * step, _pluck(g, _midi(notes[j]), 3), k == 0 ? 0.7 : g.range(0.35, 0.5));
     }
   }
   return _reverb(g, out, mix: 0.3, size: 1.1);
@@ -809,14 +867,21 @@ Float64List _kalimba(_Gen g) {
     return (math.sin(2 * math.pi * f * t) * _env(t, 0.002, 0.7) +
         0.15 * math.sin(2 * math.pi * f * 5.6 * t) * _env(t, 0.001, 0.05));
   });
-  const pattern = [0, 2, 4, 2, 5, 4, 2, 1];
+  // Six phrases that each wander their own way, with a breath between them.
+  const roots = [0, 3, 1, 4, 2, 0];
   final step = g.seconds / 96;
+  var j = 2;
   for (var k = 0; k < 96; k++) {
-    final bar = k ~/ 8;
-    final shift = [0, 0, 1, -1, 0, 2, 1, 0, 0, 1, -1, 0][bar % 12];
-    if (g.r.nextDouble() < (k % 2 == 0 ? 0.95 : 0.6)) {
-      final note = scale[(pattern[k % 8] + shift).clamp(0, scale.length - 1)];
-      g.add(out, k * step, tine(_midi(note)), g.range(0.35, 0.5));
+    final phrase = k ~/ 16, at = k % 16;
+    if (at == 0) {
+      j = roots[phrase] + g.r.nextInt(3);
+      g.add(out, k * step, tine(_midi(scale[roots[phrase]] - 12)), 0.3);
+    } else {
+      j = (j + const [-2, -1, -1, 1, 1, 2][g.r.nextInt(6)]).clamp(0, scale.length - 1);
+    }
+    if (at >= 14) continue;
+    if (g.r.nextDouble() < (k.isEven ? 0.95 : 0.55)) {
+      g.add(out, k * step, tine(_midi(scale[j])), g.range(0.35, 0.5));
     }
   }
   return _reverb(g, out, mix: 0.2);
@@ -856,16 +921,29 @@ Float64List _pad(_Gen g) {
 }
 
 Float64List _drone(_Gen g) {
-  final f = g.q(136.1), beat = g.q(0.25);
+  final f = g.q(136.1);
   final pink = _Pink(), bp = _Bq.bp(400, 1.5, g.sr);
-  return g.bed((i) {
+  final swell = g.drift(1, 4), breathe = g.drift(1, 7);
+  // Every partial turns a whole number of times per loop, the fifth too.
+  final partials = [
+    for (final (h, a) in const [(1.0, 1.0), (2.0, 0.5), (3.0, 0.3), (4.0, 0.15), (1.5, 0.35)]) (g.q(f * h), a),
+  ];
+  // Each partial beats slowly at its own rate, so the shimmer never settles
+  // into a pattern.
+  final beats = [
+    for (final c in const [3, 7, 5, 9, 4]) (c, g.drift(1, 5)),
+  ];
+  final out = g.bed((i) => bp.run(pink.run(g.white())) * (0.5 + 0.5 * breathe(i)) * 0.4);
+  for (var i = 0; i < g.n; i++) {
     final t = i / g.sr;
-    final swell = 0.8 + 0.2 * math.sin(g.cyc(i, 2));
     var v = 0.0;
-    for (final (h, a) in [(1.0, 1.0), (2.0, 0.5), (3.0, 0.3), (4.0, 0.15), (1.5, 0.35)]) {
-      v += a * (math.sin(2 * math.pi * f * h * t) + math.sin(2 * math.pi * (f * h + beat) * t)) * 0.5;
+    for (var k = 0; k < partials.length; k++) {
+      final (fh, a) = partials[k];
+      final (c, wander) = beats[k];
+      final w = 2 * math.pi * fh * t;
+      v += a * (math.sin(w) + math.sin(w + g.cyc(i, c) + 2 * wander(i))) * 0.5;
     }
-    final breath = bp.run(pink.run(g.white())) * (0.5 + 0.5 * math.sin(g.cyc(i, 3)));
-    return v * swell * 0.3 + breath * 0.4;
-  });
+    out[i] += v * (0.8 + 0.2 * swell(i)) * 0.3;
+  }
+  return out;
 }

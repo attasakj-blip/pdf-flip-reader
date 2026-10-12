@@ -62,9 +62,13 @@ class AmbientPlayer {
 /// The loop for sound [index], made once and kept in the app's files.
 Future<File> ambientFile(int index) async {
   final dir = Directory('${(await getApplicationSupportDirectory()).path}/ambient');
-  final file = File('${dir.path}/v1_$index.wav');
+  final file = File('${dir.path}/v2_$index.wav');
   if (await file.exists()) return file;
   await dir.create(recursive: true);
+  // Drop the shorter loops of earlier versions.
+  await for (final old in dir.list()) {
+    if (old is File && old.path.split('/').last.startsWith('v1_')) await old.delete().catchError((_) => old);
+  }
   final bytes = await Isolate.run(() => ambientWav(index));
   final tmp = File('${file.path}.part');
   await tmp.writeAsBytes(bytes, flush: true);
