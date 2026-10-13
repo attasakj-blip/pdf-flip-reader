@@ -516,6 +516,15 @@ Pagelume показывает PDF как настоящую книгу. Стра
 
 Бесплатно, с небольшим баннером только на экране выбора файлов. Реклама ограничена материалами для всех возрастов и никогда не показывается во время чтения.''')
 
+# Newer features go in just before the projector section (the fifth ★).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from listings_features import NEW  # noqa: E402
+
+for _code, _d in L.items():
+    _parts = _d['full'].split('\n\n★ ')
+    _parts.insert(5, NEW[_code][2:])
+    _d['full'] = '\n\n★ '.join(_parts)
+
 # Play Console language codes for each listing.
 PLAY_CODE = {
     'en': 'en-US (default), en-GB', 'th': 'th', 'de': 'de-DE', 'fr': 'fr-FR, fr-CA', 'it': 'it-IT',
