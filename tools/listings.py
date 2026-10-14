@@ -36,7 +36,7 @@ Pagelume shows your PDF as a real book. Pages curl under your finger as you swip
 
 ★ FOR PROJECTORS AND AI GLASSES
 • Mirror your phone to a mini projector, a TV, or AI / display glasses that show your phone screen
-• Great for documents, journal articles, reports, children's stories and novels
+• Great for documents, journal articles, reports, short stories and novels
 • Aim a projector at the ceiling and read in bed before you sleep
 • Tap once to hide the controls for a clean full-screen page; the screen stays on while you read
 
@@ -75,7 +75,7 @@ Pagelume แสดง PDF ของคุณเหมือนหนังสื
 
 ★ เหมาะกับโปรเจกเตอร์และแว่น AI
 • สะท้อนหน้าจอไปมินิโปรเจกเตอร์ ทีวี หรือแว่น AI / แว่นจอภาพที่แสดงหน้าจอมือถือได้
-• เหมาะกับเอกสารทั่วไป บทความวารสาร รายงาน นิทาน และนิยาย
+• เหมาะกับเอกสารทั่วไป บทความวารสาร รายงาน เรื่องสั้น และนิยาย
 • ปรับโปรเจกเตอร์ฉายขึ้นเพดาน นอนอ่านหนังสือก่อนนอนได้สบายๆ
 • แตะครั้งเดียวซ่อนแถบเครื่องมือ ได้หน้ากระดาษเต็มจอ และหน้าจอไม่ดับระหว่างอ่าน
 
