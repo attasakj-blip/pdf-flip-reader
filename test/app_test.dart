@@ -32,6 +32,11 @@ void main() {
     expect(folderLabel(Uri.file('/storage/emulated/0/Documents/novels/c.pdf')), 'Documents/novels');
   });
 
+  test('folder label from iOS bookmarks', () {
+    expect(folderLabel(Uri.parse('bookmark:?folder=iCloud%20Drive&b=AAE%2Bx%2F%3D')), 'iCloud Drive');
+    expect(Uri.parse('bookmark:?folder=Books&b=AAE%2Bx%2F%3D').queryParameters['b'], 'AAE+x/=');
+  });
+
   testWidgets('starts on the file chooser, single page by default, sound sheet lists 10 sounds', (tester) async {
     SharedPreferences.setMockInitialValues({
       'language': 'th',

@@ -195,7 +195,23 @@ def main():
         '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
         '</adaptive-icon>\n'
     )
+  # iOS: one opaque 1024px square; the system rounds the corners.
+  ios = os.path.join(ROOT, 'ios/Runner/Assets.xcassets/AppIcon.appiconset')
+  write_ios_icon(full.convert('RGB').resize((1024, 1024), Image.LANCZOS), ios)
   print('icons written to', OUT)
+
+
+def write_ios_icon(img, folder):
+  for old in os.listdir(folder):
+    if old.endswith('.png'):
+      os.remove(os.path.join(folder, old))
+  img.save(os.path.join(folder, 'Icon-App-1024x1024@1x.png'))
+  with open(os.path.join(folder, 'Contents.json'), 'w') as f:
+    f.write(
+        '{\n  "images" : [\n    {\n      "filename" : "Icon-App-1024x1024@1x.png",\n'
+        '      "idiom" : "universal",\n      "platform" : "ios",\n      "size" : "1024x1024"\n    }\n  ],\n'
+        '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n'
+    )
 
 
 if __name__ == '__main__':

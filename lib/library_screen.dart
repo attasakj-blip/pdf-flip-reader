@@ -193,6 +193,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
 /// Android hands out content:// links whose document id usually carries the
 /// path ("primary:Download/Books/a.pdf"); some providers hide it.
 String folderLabel(Uri uri) {
+  // iOS: the folder's name rides along with the bookmark (AppDelegate.swift).
+  if (uri.scheme == 'bookmark') return uri.queryParameters['folder'] ?? '';
   String path;
   if (uri.scheme == 'file') {
     path = uri.toFilePath();

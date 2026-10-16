@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 /// A file in the phone's storage, as the system file picker hands it out.
 typedef DocRef = ({String uri, String name});
 
-/// Android side: see MainActivity.kt. Every call throws
-/// [MissingPluginException] elsewhere (tests, other platforms).
+/// Android side: see MainActivity.kt; iOS side: AppDelegate.swift. Every
+/// call throws [MissingPluginException] elsewhere (tests, other platforms).
 class NativeFiles {
   static const _ch = MethodChannel('pdf_flip_reader/files');
 
