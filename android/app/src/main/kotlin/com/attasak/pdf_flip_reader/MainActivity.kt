@@ -1,6 +1,7 @@
 package com.attasak.pdf_flip_reader
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -8,12 +9,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.view.View
+import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
+import com.googlecode.tesseract.android.TessBaseAPI
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -108,10 +111,67 @@ class MainActivity : FlutterActivity() {
                             (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
                             result.success(null)
                         }
+                        "shareImage" -> {
+                            val file = File(call.argument<String>("path")!!)
+                            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/png"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                clipData = ClipData.newRawUri("", uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            startActivity(Intent.createChooser(send, null))
+                            result.success(null)
+                        }
+                        "openTranslate" -> {
+                            val text = call.argument<String>("text") ?: ""
+                            val to = call.argument<String>("to") ?: "en"
+                            // The Google Translate app if installed, else the website.
+                            val app = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                setPackage("com.google.android.apps.translate")
+                            }
+                            try {
+                                startActivity(app)
+                            } catch (e: ActivityNotFoundException) {
+                                val url = "https://translate.google.com/?sl=auto&tl=" + Uri.encode(to) +
+                                    "&op=translate&text=" + Uri.encode(text.take(4000))
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }
+                            result.success(null)
+                        }
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {
                     result.error("files", e.message, null)
+                }
+            }
+        // Reading text from scanned pages with Tesseract, on the phone. The
+        // language data is downloaded by the Dart side into dataPath/tessdata.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pdf_flip_reader/ocr")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "read" -> background(result) {
+                        val api = TessBaseAPI()
+                        try {
+                            if (!api.init(call.argument<String>("dataPath")!!, call.argument<String>("langs")!!)) {
+                                throw IllegalStateException("language data")
+                            }
+                            api.setPageSegMode(TessBaseAPI.PageSegMode.PSM_AUTO)
+                            val bmp = BitmapFactory.decodeFile(call.argument<String>("image")!!)
+                                ?: throw IllegalStateException("image")
+                            try {
+                                api.setImage(bmp)
+                                api.getUTF8Text() ?: ""
+                            } finally {
+                                bmp.recycle()
+                            }
+                        } finally {
+                            api.recycle()
+                        }
+                    }
+                    else -> result.notImplemented()
                 }
             }
     }

@@ -70,7 +70,7 @@ class S {
   String gotoError(int total) => _f('gotoError', {'total': total});
   String get cancel => _f('cancel');
   String get go => _f('go');
-  String soundName(int i) => _f('s${i + 1}');
+  String soundName(int i) => _f('fs${i + 1}');
   String get signDocument => _f('signDocument');
   String get signPadTitle => _f('signPadTitle');
   String get clear => _f('clear');
@@ -104,9 +104,9 @@ class S {
   String get keepOnePage => _f('keepOnePage');
   String get ambientMenu => _f('ambientMenu');
   String get ambientOff => _f('ambientOff');
-  String get ambientHint => _f('ambientHint');
+  String get ambientHint => _f('ambientHintSlow');
   String get working => _f('working');
-  String ambientName(int i) => _f('a$i');
+  String ambientName(int i) => _f('b$i');
   String get translateArea => _f('translateArea');
   String get translateDoc => _f('translateDoc');
   String get selectTextHint => _f('selectTextHint');
@@ -150,6 +150,38 @@ class S {
   String get lineSolid => _f('lineSolid');
   String get lineDashed => _f('lineDashed');
   String get undo => _f('undo');
+  String get undoChanges => _f('undoChanges');
+  String get undoHint => _f('undoHint');
+  String undoSteps(int n) => _f('undoSteps', {'n': n});
+  String undoneSteps(int n) => _f('undoneSteps', {'n': n});
+  String get undoOpened => _f('undoOpened');
+  String stepSign(String n) => _f('stepSign', {'n': n});
+  String stepMarkup(String n) => _f('stepMarkup', {'n': n});
+  String stepDelete(String n) => _f('stepDelete', {'n': n});
+  String stepTranslate(String n, String lang) => _f('stepTranslate', {'n': n, 'lang': lang});
+  String stepTranslateArea(String n, String lang) => _f('stepTranslateArea', {'n': n, 'lang': lang});
+  String get flipEffect => _f('flipEffect');
+  String get flipEffectHint => _f('flipEffectHint');
+  String get showOriginal => _f('showOriginal');
+  String get showTranslated => _f('showTranslated');
+  String get viewingOriginal => _f('viewingOriginal');
+  String get backToTranslationFirst => _f('backToTranslationFirst');
+  String get openGoogleTranslate => _f('openGoogleTranslate');
+  String get translateNote => _f('translateNote');
+  String get ocrArea => _f('ocrArea');
+  String get ocrHint => _f('ocrHint');
+  String get ocrButton => _f('ocrButton');
+  String get ocrReading => _f('ocrReading');
+  String get ocrDownloading => _f('ocrDownloading');
+  String get ocrTitle => _f('ocrTitle');
+  String get ocrEditHint => _f('ocrEditHint');
+  String get ocrNothing => _f('ocrNothing');
+  String ocrFailed(Object e) => _f('ocrFailed', {'e': e});
+  String get ocrLanguage => _f('ocrLanguage');
+  String get ocrNotSupported => _f('ocrNotSupported');
+  String get scannedOffer => _f('scannedOffer');
+  String get shareImage => _f('shareImage');
+  String get copyAreaImage => _f('copyAreaImage');
 }
 
 class SDelegate extends LocalizationsDelegate<S> {

@@ -17,12 +17,15 @@ import 'goto_dialog.dart';
 import 'l10n.dart';
 import 'markup.dart';
 import 'native_files.dart';
+import 'ocr.dart';
+import 'ocr_dialog.dart';
 import 'page_cache.dart';
 import 'page_clipboard.dart';
 import 'pdf_edit.dart';
 import 'save_flow.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
+import 'strings.g.dart' show languageNames;
 import 'translate_flow.dart';
 
 class ReaderScreen extends StatefulWidget {
@@ -36,7 +39,11 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-enum _Tool { none, sign, area, translate, markup }
+enum _Tool { none, sign, area, translate, markup, ocr }
+
+/// One edit that can be undone: the working copy after it, what it was
+/// (shown in the undo list), the page to go back to and when it happened.
+typedef _Step = ({String path, String label, String suffix, int page, bool translated, DateTime at});
 
 enum _Gesture { none, turn, pan, zoom }
 
@@ -44,10 +51,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   /// The book on screen; saving an edit as a new file switches to it.
   late RecentBook _book = widget.book;
 
-  /// Edits not saved yet live in this copy of the book; saving writes it out.
-  String? _working;
-  String? _editSuffix;
-  String get _path => _working ?? _book.localPath;
+  /// Edits not saved yet: one copy of the book per step, newest last, so
+  /// each step can be undone. Saving writes the newest out.
+  final _history = <_Step>[];
+  static const _maxUndo = 25;
+  String? get _working => _history.isEmpty ? null : _history.last.path;
+  String? get _editSuffix => _history.isEmpty
+      ? null
+      : _history.length == 1
+      ? _history.first.suffix
+      : 'edited';
+
+  /// Showing the book as it was before the first translation (view only).
+  bool _showOriginal = false;
+
+  /// The copy from just before the first translation step, if any.
+  String? get _beforeTranslation {
+    final i = _history.indexWhere((h) => h.translated);
+    if (i < 0) return null;
+    return i == 0 ? _book.localPath : _history[i - 1].path;
+  }
+
+  String get _path => (_showOriginal ? _beforeTranslation : null) ?? _working ?? _book.localPath;
   PageCache? _cache;
   MirroredPages? _mirrored;
   bool _loading = true;
@@ -91,6 +116,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   int _dragDir = 0; // -1 forward (finger moves left), +1 backward
   bool _bottom = true;
   Offset _dragStart = Offset.zero;
+  Offset _dragLast = Offset.zero;
   Offset _cornerStart = Offset.zero;
   late final AnimationController _anim;
   Offset _animFrom = Offset.zero;
@@ -118,8 +144,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     NativeFiles.edgeSwipes(false);
     _focus.dispose();
     _ambient.dispose();
-    final w = _working;
-    if (w != null) File(w).delete().ignore();
+    _dropHistory();
     _mirrored?.dispose();
     _cache?.dispose();
     WakelockPlus.disable();
@@ -279,6 +304,10 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         return;
       }
     }
+    if (!_settings.flipAnimation) {
+      _dragLast = pos;
+      return;
+    }
     final k = _dragScale(l, screenWidth);
     final p = l.clampCorner(_cornerStart + (pos - _dragStart) * k, _bottom);
     setState(() => _flip = _flipWith(p));
@@ -292,6 +321,16 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   void _onDragEnd(Velocity velocity) {
+    if (!_settings.flipAnimation && _flip == null) {
+      // No page curl: a swipe just shows the next or previous page.
+      final dir = _dragDir;
+      _dragDir = 0;
+      if (dir == 0) return;
+      final dx = _dragLast.dx - _dragStart.dx, vx = velocity.pixelsPerSecond.dx;
+      final complete = dir < 0 ? (dx < -40 || vx < -250) : (dx > 40 || vx > 250);
+      if (complete) _jump(dir < 0);
+      return;
+    }
     final l = _layout;
     final f = _flip;
     if (l == null || f == null || _dragDir == 0) {
@@ -394,15 +433,19 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 EdgeMenuItem(
                   icon: Icons.format_color_text,
                   label: s.markup,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.markup)),
+                  onTap: _fromEdge(() {
+                    if (_editAllowed()) setState(() => _tool = _Tool.markup);
+                  }),
                 ),
                 EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
                 EdgeMenuItem(
                   icon: Icons.crop,
-                  label: s.copyArea,
+                  label: s.copyAreaImage,
                   onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
                 ),
                 EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
+                if (_history.isNotEmpty)
+                  EdgeMenuItem(icon: Icons.history, label: s.undoChanges, onTap: _fromEdge(_showUndoList)),
               ],
             )
           : EdgeMenu(
@@ -421,6 +464,24 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   icon: Icons.g_translate,
                   label: s.translateDoc.replaceAll('…', ''),
                   onTap: _fromEdge(_translateDoc),
+                ),
+                EdgeMenuItem(
+                  icon: Icons.document_scanner,
+                  label: s.ocrArea,
+                  onTap: _fromEdge(() => setState(() => _tool = _Tool.ocr)),
+                ),
+                if (_beforeTranslation != null)
+                  EdgeMenuItem(
+                    icon: Icons.compare,
+                    label: s.showOriginal,
+                    on: _showOriginal,
+                    onTap: _fromEdge(_toggleOriginal),
+                  ),
+                EdgeMenuItem(
+                  icon: Icons.auto_stories_outlined,
+                  label: s.flipEffect,
+                  on: _settings.flipAnimation,
+                  onTap: () => setState(() => _settings.flipAnimation = !_settings.flipAnimation),
                 ),
                 EdgeMenuItem(
                   icon: Icons.auto_stories,
@@ -541,12 +602,25 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     _saveProgress();
   }
 
+  /// Shows the next or previous page straight away, without the curl.
+  void _jump(bool forward) {
+    if (forward ? !_hasNext : !_hasPrev) return;
+    widget.sounds.playTurn();
+    setState(() => _index += forward ? 1 : -1);
+    _prefetch();
+    _saveProgress();
+  }
+
   /// Animated turn for buttons, keyboard and presentation clickers.
   void _turn(bool forward) {
     if (_zoom > 1) _resetZoom();
     final l = _layout;
     if (l == null || _anim.isAnimating || _flip != null) return;
     if (forward ? !_hasNext : !_hasPrev) return;
+    if (!_settings.flipAnimation) {
+      _jump(forward);
+      return;
+    }
     _bottom = true;
     _dragDir = forward ? -1 : 1;
     final start = forward ? l.corner(true) : l.turnedCorner(true);
@@ -626,11 +700,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _runEdit(
       keepPage: marks.first.page,
       suffix: 'marked',
+      label: S.of(context).stepMarkup(_pageList(marks.map((m) => m.page))),
       edit: (dest) async => PdfEditor.stampAll(_path, dest, await markStamps(marks, aspects)),
     );
   }
 
   bool get _idle => _flip == null && !_anim.isAnimating && !_loading && _cache != null;
+
+  /// Edits are made on the newest copy: not while the original is shown.
+  bool _editAllowed() {
+    if (!_idle) return false;
+    if (_showOriginal) {
+      _toast(S.of(context).backToTranslationFirst);
+      return false;
+    }
+    return true;
+  }
+
+  /// Page numbers for the undo list: "3", "3, 4" or "3, 4, 5…".
+  static String _pageList(Iterable<int> pages) {
+    final list = (pages.toSet().toList()..sort()).map((p) => '${p + 1}').toList();
+    return list.length > 3 ? '${list.take(3).join(', ')}…' : list.join(', ');
+  }
 
   void _toast(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
@@ -642,7 +733,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _startSigning() async {
-    if (!_idle) return;
+    if (!_editAllowed()) return;
     final sig = await showSignaturePad(context);
     if (sig == null || !mounted) return;
     setState(() {
@@ -660,6 +751,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _runEdit(
       keepPage: slot.page,
       suffix: 'signed',
+      label: S.of(context).stepSign(_pageList([slot.page])),
       edit: (dest) async {
         // Roughly 300 dpi for the signature image on a typical page.
         final px = (box.width / slot.rect.width * 2400).clamp(120, 1800).round();
@@ -670,7 +762,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _askDelete() async {
-    if (!_idle) return;
+    if (!_editAllowed()) return;
     _resetZoom();
     final s = S.of(context);
     final pages = _slots.map((e) => e.page).toList();
@@ -705,6 +797,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _runEdit(
       keepPage: math.min(first, total - del.length - 1),
       suffix: 'edited',
+      label: s.stepDelete(_pageList(del)),
       edit: (dest) => PdfEditor.deletePages(_path, dest, del),
     );
   }
@@ -715,7 +808,9 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   Future<void> _runEdit({
     required int keepPage,
     required String suffix,
+    required String label,
     required Future<void> Function(String dest) edit,
+    bool translated = false,
   }) async {
     final dest = await _scratchPdf();
     setState(() => _loading = true);
@@ -733,11 +828,57 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       File(dest).delete().ignore();
       return;
     }
-    final previous = _working;
-    _working = dest;
-    _editSuffix = _editSuffix == null ? suffix : 'edited';
+    _history.add((
+      path: dest,
+      label: label,
+      suffix: suffix,
+      page: keepPage,
+      translated: translated,
+      at: DateTime.now(),
+    ));
+    if (_history.length > _maxUndo) File(_history.removeAt(0).path).delete().ignore();
+    _showOriginal = false;
     await _reload(keepPage);
-    if (previous != null) File(previous).delete().ignore();
+  }
+
+  /// Deletes every unsaved step's copy.
+  void _dropHistory() {
+    for (final h in _history) {
+      File(h.path).delete().ignore();
+    }
+    _history.clear();
+    _showOriginal = false;
+  }
+
+  /// Undoes the steps from [from] (index in [_history]) to the newest.
+  Future<void> _undoFrom(int from) async {
+    if (!_idle || from < 0 || from >= _history.length) return;
+    final removed = _history.sublist(from);
+    _history.removeRange(from, _history.length);
+    if (_beforeTranslation == null) _showOriginal = false;
+    await _reload(removed.first.page);
+    for (final h in removed) {
+      File(h.path).delete().ignore();
+    }
+    if (mounted) _toast(S.of(context).undoneSteps(removed.length));
+  }
+
+  /// The list of steps: pick how far back to go.
+  Future<void> _showUndoList() async {
+    if (!_idle || _history.isEmpty) return;
+    final from = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _UndoSheet(steps: _history.map((h) => (label: h.label, at: h.at)).toList()),
+    );
+    if (from != null) await _undoFrom(from);
+  }
+
+  Future<void> _toggleOriginal() async {
+    if (!_idle || _beforeTranslation == null) return;
+    _showOriginal = !_showOriginal;
+    await _reload(_firstVisiblePage);
   }
 
   Future<void> _reload(int keepPage) async {
@@ -764,10 +905,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     final old = _book;
     final keep = _firstVisiblePage;
     _book = saved.book;
-    _working = null;
-    _editSuffix = null;
+    _dropHistory();
     await _reload(keep);
-    File(working).delete().ignore();
     if (saved.replaced && old.localPath != saved.book.localPath) File(old.localPath).delete().ignore();
     return true;
   }
@@ -790,11 +929,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     );
     if (choice == 'save') return _saveWorking();
     if (choice == 'discard') {
-      File(_working!).delete().ignore();
-      setState(() {
-        _working = null;
-        _editSuffix = null;
-      });
+      setState(_dropHistory);
       return true;
     }
     return false;
@@ -834,12 +969,26 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _copy(() => PageClipboard(_cache!).areaPng(slots, area));
   }
 
+  /// Copies an image to the clipboard, and offers to share it straight to
+  /// another app (some apps can't paste images).
   Future<void> _copy(Future<Uint8List> Function() png) async {
     final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _loading = true);
     try {
-      await PageClipboard.copy(await png());
-      if (mounted) _toast(s.copied);
+      final file = await PageClipboard.copy(await png());
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(s.copied),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: s.shareImage,
+              onPressed: () => NativeFiles.shareImage(file).catchError((_) {}),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) _toast(s.saveFailed(e));
     } finally {
@@ -861,7 +1010,18 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
     if (!mounted) return;
     if (segments.isEmpty) {
-      _toast(s.noText);
+      // Probably a scanned page: offer to read the text from the picture.
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: Text(s.scannedOffer),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.ocrButton)),
+          ],
+        ),
+      );
+      if (ok == true && mounted) await _ocrArea(area, thenTranslate: true);
       return;
     }
     final to = await pickTargetLanguage(context, _settings);
@@ -884,11 +1044,19 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       return;
     }
     final texts = out;
-    final put = await showTranslation(context, segments.map((g) => g.block.text).join('\n\n'), texts.join('\n\n'));
+    final put = await showTranslation(
+      context,
+      segments.map((g) => g.block.text).join('\n\n'),
+      texts.join('\n\n'),
+      to: to,
+      canPlace: !_showOriginal,
+    );
     if (!put || !mounted) return;
     await _runEdit(
       keepPage: segments.first.page,
       suffix: 'translated_$to',
+      label: s.stepTranslateArea(_pageList(segments.map((g) => g.page)), languageNames[to] ?? to),
+      translated: true,
       edit: (dest) async {
         final stamps = <Stamp>[];
         for (var i = 0; i < segments.length; i++) {
@@ -900,7 +1068,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _translateDoc() async {
-    if (!_idle) return;
+    if (!_editAllowed()) return;
     _resetZoom();
     final s = S.of(context);
     final total = _cache!.pageCount;
@@ -914,6 +1082,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     if (ask == null || !mounted) return;
     final message = ValueNotifier(s.translating);
     final stamps = <Stamp>[];
+    final done = <int>[];
     bool? unknown;
     try {
       await withProgress(context, message, () async {
@@ -934,6 +1103,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
             continue;
           }
           unknown = false;
+          done.add(page);
           stamps.addAll(await translatedStamps(_path, page, blocks, out));
         }
       });
@@ -943,14 +1113,103 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
     if (!mounted) return;
     if (stamps.isEmpty) {
-      _toast(unknown == true ? s.unknownLanguage : s.noText);
+      if (unknown == true) {
+        _toast(s.unknownLanguage);
+      } else {
+        // No text layer: likely a scan. Point to reading text from the image.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(s.scannedOffer),
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(label: s.ocrButton, onPressed: () => setState(() => _tool = _Tool.ocr)),
+          ),
+        );
+      }
       return;
     }
     await _runEdit(
       keepPage: ask.pages.first,
       suffix: 'translated_${ask.to}',
+      label: s.stepTranslate(_pageList(done), languageNames[ask.to] ?? ask.to),
+      translated: true,
       edit: (dest) => PdfEditor.stampAll(_path, dest, stamps, replaceText: true),
     );
+  }
+
+  // ------------------------------------------------------ text from scans ---
+
+  /// Reads the text inside [area] from the page pictures (for scanned PDFs),
+  /// then lets the user fix, copy or translate it.
+  Future<void> _ocrArea(Rect area, {bool thenTranslate = false}) async {
+    setState(() => _tool = _Tool.none);
+    final s = S.of(context);
+    final slots = _zoomedSlots;
+    final png = await PageClipboard(_cache!).areaPng(slots, area, side: 3600, maxScale: 6);
+    if (!mounted) return;
+    var langs = _ocrLangs;
+    while (true) {
+      if (!mounted) return;
+      final message = ValueNotifier(s.ocrReading);
+      String text;
+      try {
+        text = await withProgress(
+          context,
+          message,
+          () => Ocr.instance.read(png, langs, onDownload: () => message.value = s.ocrDownloading),
+        );
+      } on MissingPluginException {
+        if (mounted) _toast(s.ocrNotSupported);
+        return;
+      } catch (e) {
+        if (mounted) _toast(s.ocrFailed(e));
+        return;
+      }
+      if (!mounted) return;
+      final result = await showDialog<OcrResult>(
+        context: context,
+        builder: (_) => OcrResultDialog(text: text, langs: langs, autoTranslate: thenTranslate),
+      );
+      if (result == null || !mounted) return;
+      if (result.langs != null) {
+        // Read again in other languages.
+        langs = result.langs!;
+        _settings.ocrLangs = langs.join('+');
+        thenTranslate = false;
+        continue;
+      }
+      if (result.translate != null) await _translateText(result.translate!);
+      return;
+    }
+  }
+
+  List<String> get _ocrLangs {
+    final saved = _settings.ocrLangs;
+    if (saved != null && saved.isNotEmpty) {
+      final list = saved.split('+').where(Ocr.tesseract.containsKey).toList();
+      if (list.isNotEmpty) return list;
+    }
+    return Ocr.defaultsFor(S.of(context).code);
+  }
+
+  /// Translates text that is not on the page (read from a scan).
+  Future<void> _translateText(String text) async {
+    final s = S.of(context);
+    final to = await pickTargetLanguage(context, _settings);
+    if (to == null || !mounted) return;
+    final message = ValueNotifier(s.translating);
+    List<String>? out;
+    try {
+      out = await withProgress(context, message, () => translateAll([text], to, message: message, s: s));
+    } catch (e) {
+      if (mounted) _toast(s.translateFailed(e));
+      return;
+    }
+    if (!mounted) return;
+    if (out == null) {
+      _toast(s.unknownLanguage);
+      return;
+    }
+    await showTranslation(context, text, out.first, to: to, canPlace: false);
   }
 
   // ------------------------------------------------------------- dialogs ---
@@ -1039,6 +1298,16 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
               Positioned.fill(
                 child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
               ),
+            if (_tool == _Tool.ocr)
+              Positioned.fill(
+                child: SelectArea(
+                  hint: S.of(context).ocrHint,
+                  confirm: S.of(context).ocrButton,
+                  onDone: _ocrArea,
+                  onCancel: () => setState(() => _tool = _Tool.none),
+                ),
+              ),
+            if (cache != null && _tool == _Tool.none && _beforeTranslation != null) _originalSwitch(),
             if (cache != null && _tool == _Tool.none) ...[_edgeStrip(true), _edgeStrip(false)],
             if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
             if (_loading) const Center(child: CircularProgressIndicator()),
@@ -1124,6 +1393,21 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ],
               ),
             ),
+            if (_history.isNotEmpty) ...[
+              IconButton(
+                tooltip: '${S.of(context).undo} (${S.of(context).undoChanges}…)',
+                icon: Badge.count(count: _history.length, child: const Icon(Icons.undo)),
+                onPressed: () => _undoFrom(_history.length - 1),
+                onLongPress: _showUndoList,
+              ),
+              // Narrow phones: the list is a long press on undo, or in the menu.
+              if (MediaQuery.sizeOf(context).width >= 420)
+                IconButton(
+                  tooltip: S.of(context).undoChanges,
+                  icon: const Icon(Icons.history),
+                  onPressed: _showUndoList,
+                ),
+            ],
             SegmentedButton<bool>(
               showSelectedIcon: false,
               segments: [
@@ -1145,7 +1429,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'sign') _startSigning();
                 if (v == 'copyPage') _copyPage();
                 if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
-                if (v == 'markup' && _idle) setState(() => _tool = _Tool.markup);
+                if (v == 'markup' && _editAllowed()) setState(() => _tool = _Tool.markup);
+                if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
+                if (v == 'undoList') _showUndoList();
+                if (v == 'original') _toggleOriginal();
+                if (v == 'flip') setState(() => _settings.flipAnimation = !_settings.flipAnimation);
                 if (v == 'delete') _askDelete();
                 if (v == 'translateArea' && _idle) setState(() => _tool = _Tool.translate);
                 if (v == 'translateDoc') _translateDoc();
@@ -1164,14 +1452,22 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
               },
               itemBuilder: (_) => [
                 if (_working != null) _iconItem('save', Icons.save, S.of(context).saveMenu),
+                if (_history.isNotEmpty) _iconItem('undoList', Icons.history, S.of(context).undoChanges),
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
                 _iconItem('sign', Icons.draw, S.of(context).signDocument),
                 _iconItem('markup', Icons.format_color_text, S.of(context).markup),
                 _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
-                _iconItem('copyArea', Icons.crop, S.of(context).copyArea),
+                _iconItem('copyArea', Icons.crop, S.of(context).copyAreaImage),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
                 _iconItem('translateArea', Icons.translate, S.of(context).translateArea),
                 _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
+                _iconItem('ocr', Icons.document_scanner, S.of(context).ocrArea),
+                if (_beforeTranslation != null)
+                  _iconItem(
+                    'original',
+                    Icons.compare,
+                    _showOriginal ? S.of(context).showTranslated : S.of(context).showOriginal,
+                  ),
                 const PopupMenuDivider(),
                 CheckedPopupMenuItem(
                   value: 'cover',
@@ -1180,6 +1476,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   child: Text(S.of(context).coverAlone),
                 ),
                 CheckedPopupMenuItem(value: 'rtl', checked: _rtl, child: Text(S.of(context).rtlPages)),
+                CheckedPopupMenuItem(
+                  value: 'flip',
+                  checked: _settings.flipAnimation,
+                  child: Text(S.of(context).flipEffect),
+                ),
                 CheckedPopupMenuItem(
                   value: 'night',
                   checked: _settings.nightMode,
@@ -1212,6 +1513,38 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     value: value,
     child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(icon), title: Text(text)),
   );
+
+  /// "Show original" / "Show translation" while a translation is unsaved.
+  Widget _originalSwitch() {
+    final s = S.of(context);
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: _controlsVisible && _spreads.length > 1 ? 76 : 16,
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_showOriginal)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)),
+                  child: Text(s.viewingOriginal, style: const TextStyle(fontSize: 12, color: Colors.amberAccent)),
+                ),
+              FilledButton.tonalIcon(
+                icon: Icon(_showOriginal ? Icons.translate : Icons.compare),
+                label: Text(_showOriginal ? s.showTranslated : s.showOriginal),
+                onPressed: _idle ? _toggleOriginal : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _bottomBar() => AnimatedPositioned(
     duration: const Duration(milliseconds: 200),
@@ -1294,6 +1627,83 @@ class _DeletePagesDialogState extends State<_DeletePagesDialog> {
           child: Text(s.delete),
         ),
       ],
+    );
+  }
+}
+
+/// The undo list: newest step first. Tapping a step marks it and every
+/// later step; the button undoes them all.
+class _UndoSheet extends StatefulWidget {
+  const _UndoSheet({required this.steps});
+  final List<({String label, DateTime at})> steps;
+
+  @override
+  State<_UndoSheet> createState() => _UndoSheetState();
+}
+
+class _UndoSheetState extends State<_UndoSheet> {
+  late int _from = widget.steps.length - 1;
+
+  String _time(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final n = widget.steps.length;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(s.undoChanges, style: Theme.of(context).textTheme.titleMedium),
+              subtitle: Text(s.undoHint),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (var i = n - 1; i >= 0; i--)
+                    ListTile(
+                      key: ValueKey('undo_$i'),
+                      selected: i >= _from,
+                      leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
+                      title: Text(
+                        widget.steps[i].label,
+                        style: i >= _from ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+                      ),
+                      trailing: Text(_time(widget.steps[i].at), style: const TextStyle(fontSize: 12)),
+                      onTap: () => setState(() => _from = i),
+                    ),
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.description_outlined),
+                    title: Text(s.undoOpened, style: const TextStyle(color: Colors.white60)),
+                    onTap: () => setState(() => _from = 0),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.undo),
+                    label: Text(s.undoSteps(n - _from)),
+                    onPressed: () => Navigator.pop(context, _from),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

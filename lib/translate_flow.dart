@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'l10n.dart';
+import 'native_files.dart';
 import 'pdf_edit.dart';
 import 'settings.dart';
 import 'strings.g.dart' show languageNames;
@@ -75,6 +76,7 @@ Future<List<String>?> translateAll(
   void Function(int done)? onProgress,
 }) async {
   final t = DocTranslator.instance;
+  texts = [for (final x in texts) cleanText(x)];
   final from = await t.detect(texts.join('\n'));
   if (from == null) return null;
   await t.prepare(from, to, onDownload: () => message.value = s.downloadingModel);
@@ -88,8 +90,14 @@ Future<List<String>?> translateAll(
 }
 
 /// Shows the translation; returns true if the user wants it written onto
-/// the page.
-Future<bool> showTranslation(BuildContext context, String original, String translated) async {
+/// the page (only offered when [canPlace]). [to] is the target language.
+Future<bool> showTranslation(
+  BuildContext context,
+  String original,
+  String translated, {
+  required String to,
+  bool canPlace = true,
+}) async {
   final s = S.of(context);
   final put = await showDialog<bool>(
     context: context,
@@ -103,6 +111,17 @@ Future<bool> showTranslation(BuildContext context, String original, String trans
             SelectableText(translated, style: const TextStyle(fontSize: 16)),
             const Divider(height: 24),
             Text(original, style: const TextStyle(fontSize: 12, color: Colors.white60)),
+            const SizedBox(height: 16),
+            Text(s.translateNote, style: const TextStyle(fontSize: 12, color: Colors.amberAccent)),
+            const SizedBox(height: 4),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.g_translate, size: 18),
+                label: Text(s.openGoogleTranslate),
+                onPressed: () => openGoogleTranslate(ctx, original, to),
+              ),
+            ),
           ],
         ),
       ),
@@ -114,13 +133,61 @@ Future<bool> showTranslation(BuildContext context, String original, String trans
           },
           child: Text(s.copyText),
         ),
-        TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.placeTranslation)),
+        if (canPlace) TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.placeTranslation)),
         FilledButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.close)),
       ],
     ),
   );
   return put == true;
 }
+
+/// Opens [text] in Google Translate (app or website).
+Future<void> openGoogleTranslate(BuildContext context, String text, String to) async {
+  try {
+    await NativeFiles.openTranslate(text, to);
+  } catch (_) {
+    // No platform side (tests): copy instead, so the text is not lost.
+    await Clipboard.setData(ClipboardData(text: text));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(S.of(context).textCopied)));
+    }
+  }
+}
+
+/// Repairs text taken from a PDF before translating it. Many Thai PDFs use
+/// old fonts that store vowels and tone marks as private-use characters
+/// (U+F700-F71A) or write sara am as nikhahit + sara aa; the translator
+/// cannot read those, which made Thai translations come out garbled.
+String cleanText(String text) {
+  final b = StringBuffer();
+  for (final r in text.runes) {
+    final m = _thaiPua[r];
+    if (m != null) {
+      b.writeCharCode(m);
+    } else if (r == 0x200B || r == 0xFEFF || r == 0x00AD) {
+      // zero-width space, byte-order mark, soft hyphen
+    } else {
+      b.writeCharCode(r);
+    }
+  }
+  return b
+      .toString()
+      .replaceAll('\u0E4D\u0E32', '\u0E33')
+      .replaceAll('\u0E32\u0E4D', '\u0E33')
+      .replaceAll(RegExp(r'[ \t]+'), ' ')
+      .trim();
+}
+
+/// Thai glyph variants in the private-use area (shifted or tail-less forms
+/// in Windows and Mac Thai fonts) and the letters they stand for.
+const _thaiPua = <int, int>{
+  0xF700: 0x0E10, 0xF701: 0x0E34, 0xF702: 0x0E35, 0xF703: 0x0E36, 0xF704: 0x0E37, //
+  0xF705: 0x0E48, 0xF706: 0x0E49, 0xF707: 0x0E4A, 0xF708: 0x0E4B, 0xF709: 0x0E4C,
+  0xF70A: 0x0E48, 0xF70B: 0x0E49, 0xF70C: 0x0E4A, 0xF70D: 0x0E4B, 0xF70E: 0x0E4C,
+  0xF70F: 0x0E0D, 0xF710: 0x0E31, 0xF711: 0x0E4D, 0xF712: 0x0E47, 0xF713: 0x0E48,
+  0xF714: 0x0E49, 0xF715: 0x0E4A, 0xF716: 0x0E4B, 0xF717: 0x0E4C, 0xF718: 0x0E38,
+  0xF719: 0x0E39, 0xF71A: 0x0E3A,
+};
 
 /// Asks which pages to translate (at most [maxPages]) and into which
 /// language. [preselected] are ticked to start with.

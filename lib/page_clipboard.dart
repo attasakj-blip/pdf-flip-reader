@@ -19,10 +19,10 @@ class PageClipboard {
   /// Largest image side we put on the clipboard.
   static const maxSide = 2400.0;
 
-  Future<Uint8List> _renderPng(int index, double width) => cache.exclusive((doc) async {
+  Future<Uint8List> _renderPng(int index, double width, [double side = maxSide]) => cache.exclusive((doc) async {
     final page = await doc.getPage(index + 1);
     try {
-      final w = width.clamp(64, maxSide).toDouble();
+      final w = width.clamp(64, math.max(side, maxSide)).toDouble();
       final img = await page.render(
         width: w,
         height: w * page.height / page.width,
@@ -50,8 +50,9 @@ class PageClipboard {
 
   /// The part of the screen inside [area], with each page in [slots] drawn
   /// sharp underneath. Outside the pages is white.
-  Future<Uint8List> areaPng(List<PageSlot> slots, ui.Rect area) async {
-    final k = math.min(4.0, maxSide / math.max(area.width, area.height));
+  /// [side] caps the image's longer side; reading text wants more pixels.
+  Future<Uint8List> areaPng(List<PageSlot> slots, ui.Rect area, {double side = maxSide, double maxScale = 4}) async {
+    final k = math.min(maxScale, side / math.max(area.width, area.height));
     final rec = ui.PictureRecorder();
     final canvas = ui.Canvas(rec);
     canvas.drawRect(
@@ -62,7 +63,7 @@ class PageClipboard {
     canvas.translate(-area.left, -area.top);
     for (final s in slots) {
       if (!s.rect.overlaps(area)) continue;
-      final codec = await ui.instantiateImageCodec(await _renderPng(s.page, s.rect.width * k));
+      final codec = await ui.instantiateImageCodec(await _renderPng(s.page, s.rect.width * k, side));
       final img = (await codec.getNextFrame()).image;
       canvas.drawImageRect(
         img,
@@ -78,8 +79,8 @@ class PageClipboard {
     return data!.buffer.asUint8List();
   }
 
-  /// Puts [png] on the clipboard.
-  static Future<void> copy(Uint8List png) async {
+  /// Puts [png] on the clipboard; returns the image file (for sharing).
+  static Future<String> copy(Uint8List png) async {
     final dir = Directory('${(await getTemporaryDirectory()).path}/clipboard');
     await dir.create(recursive: true);
     for (final old in dir.listSync()) {
@@ -90,5 +91,6 @@ class PageClipboard {
     final file = File('${dir.path}/page_${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(png, flush: true);
     await NativeFiles.copyImage(file.path);
+    return file.path;
   }
 }

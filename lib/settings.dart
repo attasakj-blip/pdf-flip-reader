@@ -90,15 +90,27 @@ class Settings extends ChangeNotifier {
   bool get soundOn => _prefs.getBool('soundOn') ?? true;
   set soundOn(bool v) => _set(() => _prefs.setBool('soundOn', v));
 
-  int get soundIndex => (_prefs.getInt('soundIndex') ?? 0).clamp(0, 9);
-  set soundIndex(int v) => _set(() => _prefs.setInt('soundIndex', v));
+  /// Page-turn sound (0-2). A new key: the earlier ten sounds were replaced.
+  int get soundIndex => (_prefs.getInt('flipSound2') ?? 0).clamp(0, 2);
+  set soundIndex(int v) => _set(() => _prefs.setInt('flipSound2', v));
+
+  /// Animate page turns (the curling page). Off: the next page just appears.
+  bool get flipAnimation => _prefs.getBool('flipAnimation') ?? true;
+  set flipAnimation(bool v) => _set(() => _prefs.setBool('flipAnimation', v));
 
   double get volume => _prefs.getDouble('volume') ?? 0.8;
   set volume(double v) => _set(() => _prefs.setDouble('volume', v));
 
-  /// Background sound while reading: -1 off, else 0-29 (see ambient.dart).
-  int get ambientIndex => (_prefs.getInt('ambientIndex') ?? -1).clamp(-1, 29);
-  set ambientIndex(int v) => _set(() => _prefs.setInt('ambientIndex', v));
+  /// Background sound while reading: -1 off, else 0-8 (see ambient.dart).
+  /// The earlier 30 sounds (key ambientIndex) were replaced by slow ones;
+  /// whoever had the train keeps it.
+  int get ambientIndex {
+    final v = _prefs.getInt('ambient2');
+    if (v != null) return v.clamp(-1, 8);
+    return _prefs.getInt('ambientIndex') == 19 ? 0 : -1;
+  }
+
+  set ambientIndex(int v) => _set(() => _prefs.setInt('ambient2', v));
 
   double get ambientVolume => _prefs.getDouble('ambientVolume') ?? 0.4;
   set ambientVolume(double v) => _set(() => _prefs.setDouble('ambientVolume', v));
@@ -106,6 +118,10 @@ class Settings extends ChangeNotifier {
   /// Last language chosen for translating documents.
   String get translateTo => _prefs.getString('translateTo') ?? 'en';
   set translateTo(String v) => _set(() => _prefs.setString('translateTo', v));
+
+  /// Languages for reading text from scans, as Tesseract codes ("tha+eng").
+  String? get ocrLangs => _prefs.getString('ocrLangs');
+  set ocrLangs(String? v) => _set(() => _prefs.setString('ocrLangs', v ?? ''));
 
   /// Whether the one-time pinch-to-zoom tip has been shown.
   bool get zoomTipShown => _prefs.getBool('zoomTipShown') ?? false;

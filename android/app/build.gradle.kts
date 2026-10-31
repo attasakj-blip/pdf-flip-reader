@@ -67,4 +67,6 @@ flutter {
 dependencies {
     // FileProvider, for putting copied page images on the clipboard.
     implementation("androidx.core:core:1.13.1")
+    // Tesseract OCR for text in scanned pages (from JitPack).
+    implementation("cz.adaptech.tesseract4android:tesseract4android-openmp:4.9.0")
 }

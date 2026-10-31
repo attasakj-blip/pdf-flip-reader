@@ -50,4 +50,19 @@ class NativeFiles {
   /// Puts the image file at [path] (inside the app's cache/clipboard folder)
   /// on the clipboard.
   static Future<void> copyImage(String path) => _ch.invokeMethod('copyImage', {'path': path});
+
+  /// Opens the system share sheet for the image file at [path].
+  static Future<void> shareImage(String path) => _ch.invokeMethod('shareImage', {'path': path});
+
+  /// Shows [text] in Google Translate: the app if it is installed, else the
+  /// website. [to] is an app language code.
+  static Future<void> openTranslate(String text, String to) {
+    final code = switch (to) {
+      'fil' => 'tl',
+      'zh' => 'zh-CN',
+      'zh_Hant' => 'zh-TW',
+      _ => to,
+    };
+    return _ch.invokeMethod('openTranslate', {'text': text, 'to': code});
+  }
 }

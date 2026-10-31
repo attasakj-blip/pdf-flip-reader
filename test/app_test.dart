@@ -37,7 +37,7 @@ void main() {
     expect(Uri.parse('bookmark:?folder=Books&b=AAE%2Bx%2F%3D').queryParameters['b'], 'AAE+x/=');
   });
 
-  testWidgets('starts on the file chooser, single page by default, sound sheet lists 10 sounds', (tester) async {
+  testWidgets('starts on the file chooser, single page by default, sound sheet lists 3 sounds', (tester) async {
     SharedPreferences.setMockInitialValues({
       'language': 'th',
       'recents': '[{"name":"book.pdf","folder":"Download/Books","path":"/nope/book.pdf","page":11}]',
@@ -54,11 +54,25 @@ void main() {
     await tester.tap(find.byIcon(Icons.music_note));
     await tester.pumpAndSettle();
     expect(find.text('เสียงพลิกหน้ากระดาษ'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('10. ${'สมุดโน้ต'}'), 100, scrollable: find.byType(Scrollable).last);
-    expect(find.text('10. ${'สมุดโน้ต'}'), findsOneWidget);
+    expect(find.text('1. หน้ากระดาษนุ่มๆ'), findsOneWidget);
+    expect(find.text('3. เบามาก'), findsOneWidget);
+    expect(find.textContaining('4. '), findsNothing);
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     expect(settings.soundOn, isFalse);
+  });
+
+  test('new sound lists: old choices reset, except the train', () async {
+    SharedPreferences.setMockInitialValues({'ambientIndex': 19, 'soundIndex': 7});
+    var settings = await Settings.load();
+    expect(settings.ambientIndex, 0); // the train keeps playing
+    expect(settings.soundIndex, 0);
+    expect(settings.flipAnimation, isTrue);
+    SharedPreferences.setMockInitialValues({'ambientIndex': 4});
+    settings = await Settings.load();
+    expect(settings.ambientIndex, -1);
+    settings.ambientIndex = 3;
+    expect(settings.ambientIndex, 3);
   });
 
   test('every language has every text', () {
