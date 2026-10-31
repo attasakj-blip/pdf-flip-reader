@@ -522,38 +522,49 @@ Float64List _distantBowl(_Gen g) {
 
 // ------------------------------------------------------------ slow music ---
 
-/// Lao Duang Duean (ลาวดวงเดือน), by Prince Phichai Mahinthrodom (died
-/// 1909), long in the public domain. Thai solfege: 0 = do ... 6 = ti,
-/// +7 an octave up. The source gives pitches only; the slow, even pace and
-/// the held line endings are our arrangement.
-const _laoDuangDuean = [
-  [0, 1, 2, 4, 7, 4, 5, 7, 5, 4, 2, 4, 2, 4, 2, 7],
-  [5, 7, 5, 4, 2, 4, 2, 1, 0, 1, 7, 5, 4, 7, 8, 9],
-  [11, 8, 9, 8, 7, 5, 7, 2, 4, 5, 7, 2, 4, 5, 8, 7, 5, 4, 0, 1, 2],
-  [4, 7, 4, 5, 7, 5, 4, 2, 4, 2, 4, 2, 7, 5, 7, 5, 4],
-  [2, 4, 2, 1, 0, 1, 7, 5, 4, 7, 8, 9, 11, 8, 9, 8, 7, 5],
-  [7, 2, 4, 5, 7, 2, 4, 5, 7, 8, 9, 8, 7, 9, 11, 8, 9, 7, 5],
-  [7, 5, 4, 2, 7, 6, 5, 4, 7, 8, 7, 5, 7, 4, 5, 7, 4, 5, 4],
-  [2, 4, 1, 2, 4],
+/// Khang Khao Kin Kluai (ค้างคาวกินกล้วย, "the bat eats bananas"), a
+/// traditional Thai folk melody, in the public domain. Thai notation: four
+/// slots to a group, '-' holds the note before; a ' after a note means an
+/// octave up. Played slowly, it loops after about 75 seconds.
+const _khangKhao = [
+  '-l-s -ssm\' --s\'m\' --r\'m\' --r\'m\' --s\'m\' s\'m\'r\'d\' --r\'m\'',
+  '-l-s -ssm\' --s\'m\' --r\'m\' --s\'m\' --r\'m\' s\'m\'r\'d\' --r\'d\'',
+  '---- -r\'-r\' --m\'r\' -d\'r\'- ltd\'r\' m\'r\'d\'t lslt -d\'-r\'',
+  '---- -r\'-r\' --m\'r\' -d\'r\'- -r\'-r\' m\'d\'r\'m\' s\'m\'r\'d\' -t-l',
+  '---- -l-l sld\'l sm-s -m-l sm-s lsms ld\'-l',
+  '---- -l-l sld\'l sm-s -m-l sm-s -m-r smmm',
 ];
 
-const _mbNote = 0.62; // seconds per note: slow, like a winding-down box
-const _mbHold = 2.2; // extra time on each line's last note
-const _mbTail = 1.0; // a breath before the tune comes round again
+const _mbSlot = 0.38; // seconds per slot: slow, like a winding-down box
 
-final double _musicBoxSeconds = () {
-  var t = 0.0;
-  for (final line in _laoDuangDuean) {
-    t += line.length * _mbNote + _mbHold;
-  }
-  return (t + _mbTail).roundToDouble();
-}();
+/// Each line as (slot, scale step) onsets; steps 0 = do ... 6 = ti, +7 up.
+List<List<(int, int)>> _parseThai(List<String> lines) => [
+  for (final line in lines)
+    () {
+      final out = <(int, int)>[];
+      final chars = line.replaceAll(' ', '');
+      var slot = 0;
+      for (var i = 0; i < chars.length; i++) {
+        final c = chars[i];
+        if (c == '\'') continue;
+        if (c != '-') {
+          final step = 'drmfslt'.indexOf(c);
+          final up = i + 1 < chars.length && chars[i + 1] == '\'';
+          out.add((slot, step + (up ? 7 : 0)));
+        }
+        slot++;
+      }
+      return out;
+    }(),
+];
+
+final double _musicBoxSeconds = _khangKhao.length * 32 * _mbSlot;
 
 Float64List _thaiMusicBox(_Gen g) {
   final out = Float64List(g.n);
-  // do = A4: the tune sits in a music box's sweet range (A4-E6).
+  // do = G4: the tune sits in a music box's sweet range (B4-D6).
   const steps = [0, 2, 4, 5, 7, 9, 11];
-  double pitch(int n) => _midi(69 + steps[n % 7] + 12 * (n ~/ 7));
+  double pitch(int n) => _midi(67 + steps[n % 7] + 12 * (n ~/ 7));
   Float64List tine(double f, double len) => g.tone(len, (t) {
     final e = _env(t, 0.003, 1.1);
     return (math.sin(2 * math.pi * f * t) +
@@ -561,14 +572,15 @@ Float64List _thaiMusicBox(_Gen g) {
             0.08 * math.sin(2 * math.pi * f * 5.4 * t) * math.exp(-t * 18)) *
         e;
   });
-  var at = 0.0;
-  for (final line in _laoDuangDuean) {
-    for (var k = 0; k < line.length; k++) {
-      final last = k == line.length - 1;
-      g.add(out, at, tine(pitch(line[k]), last ? 5.0 : 2.8), g.range(0.42, 0.5));
-      // A soft low do or sol under the start of each group of four.
-      if (k % 4 == 0) g.add(out, at, tine(_midi(k % 8 == 0 ? 45 : 52), 3.5), 0.22);
-      at += _mbNote + (last ? _mbHold : 0);
+  final lines = _parseThai(_khangKhao);
+  for (var l = 0; l < lines.length; l++) {
+    final t0 = l * 32 * _mbSlot;
+    for (final (slot, step) in lines[l]) {
+      g.add(out, t0 + slot * _mbSlot, tine(pitch(step), 2.8), g.range(0.42, 0.5));
+    }
+    // A soft low do or sol on every second group.
+    for (var k = 0; k < 4; k++) {
+      g.add(out, t0 + (k * 8 + 3) * _mbSlot, tine(_midi(k.isEven ? 43 : 50), 3.5), 0.2);
     }
   }
   return _reverb(g, out, mix: 0.3, size: 1.2);
