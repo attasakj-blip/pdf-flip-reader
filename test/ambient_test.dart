@@ -31,7 +31,7 @@ double _selfSimilarity(List<double> e) {
   return best;
 }
 
-const _rhythmic = {0, 1, 2, 6, 8}; // trains, waves, chords, bowl
+const _rhythmic = {0, 1, 5, 7, 8, 9}; // train, waves, chords, bowl, tunes
 
 void main() {
   test('all background sounds are quiet, clean, seamless loops', () {

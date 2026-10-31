@@ -336,11 +336,6 @@ FEEDBACK = {
         'Muy ligero', 'Bem leve', 'Еле слышно', 'Ледь чутно', 'Bardzo cicho', 'Heel zacht', 'Çok hafif', 'خفيف جدًا',
         'बहुत हल्का', 'খুব হালকা', 'Sangat ringan', 'Sangat ringan', 'Rất nhẹ', 'Napakagaan'),
     # ------------------------------------------- slow background sounds ---
-    'b0': row(
-        'Train journey', 'นั่งรถไฟเดินทาง', '火车旅途', '火車旅程', '列車の旅', '기차 여행', 'Voyage en train', 'Zugfahrt',
-        'Viaggio in treno', 'Viaje en tren', 'Viagem de trem', 'Поездка на поезде', 'Подорож потягом', 'Podróż pociągiem',
-        'Treinreis', 'Tren yolculuğu', 'رحلة بالقطار', 'ट्रेन का सफ़र', 'ট্রেন যাত্রা', 'Perjalanan kereta', 'Perjalanan kereta api',
-        'Chuyến tàu', 'Biyahe sa tren'),
     'b1': row(
         'Slow night train', 'รถไฟกลางคืน (ช้าๆ)', '缓慢的夜车', '緩慢的夜車', 'ゆっくり走る夜行列車', '느린 밤기차',
         'Train de nuit lent', 'Langsamer Nachtzug', 'Treno notturno lento', 'Tren nocturno lento', 'Trem noturno lento',
@@ -385,6 +380,25 @@ FEEDBACK = {
         'Tigela tibetana distante', 'Далёкая поющая чаша', 'Далека співоча чаша', 'Odległa misa tybetańska',
         'Verre klankschaal', 'Uzaktan şarkı söyleyen kase', 'وعاء غنائي بعيد', 'दूर की सिंगिंग बाउल', 'দূরের সিঙ্গিং বোল',
         'Mangkuk tibet di kejauhan', 'Mangkuk nyanyian dari jauh', 'Chuông xoay xa xa', 'Malayong singing bowl'),
+    'b9': row(
+        'Music box: Lao Duang Duean (old Thai melody)', 'กล่องดนตรี: ลาวดวงเดือน (เพลงไทยเดิม)',
+        '八音盒：老挝月光（泰国古曲）', '音樂盒：寮國月光（泰國古曲）', 'オルゴール：ラーオ・ドゥアンドゥアン（タイの古い旋律）',
+        '오르골: 라오 두앙드언 (태국 옛 선율)', 'Boîte à musique : Lao Duang Duean (air thaï ancien)',
+        'Spieluhr: Lao Duang Duean (alte Thai-Melodie)', 'Carillon: Lao Duang Duean (antica melodia thai)',
+        'Caja de música: Lao Duang Duean (melodía tailandesa antigua)',
+        'Caixa de música: Lao Duang Duean (melodia tailandesa antiga)',
+        'Музыкальная шкатулка: Лао Дуанг Дыан (старинная тайская мелодия)',
+        'Музична скринька: Лао Дуанг Дианг (старовинна тайська мелодія)',
+        'Pozytywka: Lao Duang Duean (dawna melodia tajska)', 'Speeldoos: Lao Duang Duean (oude Thaise melodie)',
+        'Müzik kutusu: Lao Duang Duean (eski Tay ezgisi)', 'صندوق موسيقى: لاو دوانغ دوان (لحن تايلندي قديم)',
+        'म्यूज़िक बॉक्स: लाओ दुआंग दुअन (पुरानी थाई धुन)', 'মিউজিক বক্স: লাও দুয়াং দুয়েন (পুরোনো থাই সুর)',
+        'Kotak musik: Lao Duang Duean (lagu Thai lama)', 'Kotak muzik: Lao Duang Duean (lagu Thai lama)',
+        'Hộp nhạc: Lao Duang Duean (giai điệu Thái xưa)', 'Music box: Lao Duang Duean (lumang himig Thai)'),
+    'b10': row(
+        'Slow piano', 'เปียโนช้าๆ', '舒缓钢琴', '舒緩鋼琴', 'ゆったりピアノ', '느린 피아노', 'Piano lent', 'Langsames Klavier',
+        'Pianoforte lento', 'Piano lento', 'Piano lento', 'Медленное фортепиано', 'Повільне фортепіано', 'Wolne pianino',
+        'Langzame piano', 'Yavaş piyano', 'بيانو هادئ', 'धीमा पियानो', 'ধীর পিয়ানো', 'Piano pelan', 'Piano perlahan',
+        'Piano chậm', 'Mabagal na piano'),
     'ambientHintSlow': row(
         'Slow, calm sounds made on your phone. They help you focus; pick Off for silence.',
         'เสียงจังหวะช้า ฟังสบาย สร้างขึ้นในเครื่อง ช่วยให้มีสมาธิขณะอ่าน หรือเลือก "ปิด" ถ้าอยากอ่านเงียบๆ',

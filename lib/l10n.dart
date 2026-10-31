@@ -106,7 +106,7 @@ class S {
   String get ambientOff => _f('ambientOff');
   String get ambientHint => _f('ambientHintSlow');
   String get working => _f('working');
-  String ambientName(int i) => _f('b$i');
+  String ambientName(int i) => _f('b${i + 1}');
   String get translateArea => _f('translateArea');
   String get translateDoc => _f('translateDoc');
   String get selectTextHint => _f('selectTextHint');

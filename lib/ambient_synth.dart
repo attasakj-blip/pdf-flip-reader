@@ -7,17 +7,15 @@ import 'dart:typed_data';
 /// and meets itself seamlessly: noise is cross-faded at the seam, slow
 /// swells wander freely but come back to where they started, and individual
 /// events (drops, notes, chirps) wrap around the end into the start.
-const ambientCount = 9;
+const ambientCount = 10;
 
 /// One background sound: how it is made, how long its loop is and the
-/// random seed (kept from the earlier list for the train, so it sounds the
-/// same as the one testers liked).
+/// random seed.
 typedef _Sound = ({Float64List Function(_Gen) make, double seconds, int seed});
 
 /// Slow, calm sounds only. Testers found most of the earlier 30 too busy
-/// for reading that needs thought; the one they liked was the train.
+/// for reading that needs thought.
 final List<_Sound> _sounds = [
-  (make: _train, seconds: 30, seed: 1019),
   (make: _nightTrain, seconds: 40, seed: 2001),
   (make: _slowOcean, seconds: 60, seed: 2002),
   (make: _softRain, seconds: 40, seed: 2003),
@@ -26,12 +24,14 @@ final List<_Sound> _sounds = [
   (make: _slowPad, seconds: 60, seed: 2006),
   (make: _drone, seconds: 60, seed: 2007),
   (make: _distantBowl, seconds: 60, seed: 2008),
+  (make: _thaiMusicBox, seconds: _musicBoxSeconds, seed: 2009),
+  (make: _slowPiano, seconds: 64, seed: 2010),
 ];
 
 /// Loop length of sound [id] in seconds.
 double ambientSeconds(int id) => _sounds[id].seconds;
 
-/// A 16-bit mono WAV of background sound [id] (0-8).
+/// A 16-bit mono WAV of background sound [id] (0-9).
 Uint8List ambientWav(int id, {int sampleRate = 22050}) => _wav(ambientSamples(id, sampleRate: sampleRate), sampleRate);
 
 /// Samples of sound [id] in -1..1, levelled to a quiet background loudness.
@@ -335,30 +335,6 @@ Float64List _drop(_Gen g, {double f = 0, double len = 0.004}) {
 
 // ----------------------------------------------------------------- noises ---
 
-Float64List _train(_Gen g) {
-  final br = _Brown(), lp = _Bq.lp(320, 0.7, g.sr);
-  final d = g.drift(1, 5);
-  final out = g.bed((i) => lp.run(br.run(g.white())) * (0.9 + 0.12 * d(i)));
-  Float64List clack(double gain) {
-    final bp = _Bq.bp(g.range(1400, 1800), 2, g.sr);
-    return g.tone(
-      0.15,
-      (t) =>
-          bp.run(g.white()) * _env(t, 0.001, 0.025) * gain +
-          math.sin(2 * math.pi * 70 * t) * _env(t, 0.002, 0.05) * gain * 0.8,
-    );
-  }
-
-  // Wheels over rail joints about every 1.2 s, never quite evenly.
-  final joints = g.spaced(25, 0.03);
-  for (var k = 0; k < joints.length; k++) {
-    final a = (k.isEven ? 1.0 : 0.8) * g.range(0.85, 1.0);
-    g.add(out, joints[k], clack(a));
-    g.add(out, joints[k] + g.range(0.17, 0.19), clack(a * 0.85));
-  }
-  return out;
-}
-
 // ------------------------------------------------------------------ music ---
 
 /// A struck metal bowl or tube: inharmonic partials that beat slowly.
@@ -542,4 +518,108 @@ Float64List _distantBowl(_Gen g) {
     );
   }
   return _reverb(g, out, mix: 0.4, size: 1.3);
+}
+
+// ------------------------------------------------------------ slow music ---
+
+/// Lao Duang Duean (ลาวดวงเดือน), by Prince Phichai Mahinthrodom (died
+/// 1909), long in the public domain. Thai solfege: 0 = do ... 6 = ti,
+/// +7 an octave up. The source gives pitches only; the slow, even pace and
+/// the held line endings are our arrangement.
+const _laoDuangDuean = [
+  [0, 1, 2, 4, 7, 4, 5, 7, 5, 4, 2, 4, 2, 4, 2, 7],
+  [5, 7, 5, 4, 2, 4, 2, 1, 0, 1, 7, 5, 4, 7, 8, 9],
+  [11, 8, 9, 8, 7, 5, 7, 2, 4, 5, 7, 2, 4, 5, 8, 7, 5, 4, 0, 1, 2],
+  [4, 7, 4, 5, 7, 5, 4, 2, 4, 2, 4, 2, 7, 5, 7, 5, 4],
+  [2, 4, 2, 1, 0, 1, 7, 5, 4, 7, 8, 9, 11, 8, 9, 8, 7, 5],
+  [7, 2, 4, 5, 7, 2, 4, 5, 7, 8, 9, 8, 7, 9, 11, 8, 9, 7, 5],
+  [7, 5, 4, 2, 7, 6, 5, 4, 7, 8, 7, 5, 7, 4, 5, 7, 4, 5, 4],
+  [2, 4, 1, 2, 4],
+];
+
+const _mbNote = 0.62; // seconds per note: slow, like a winding-down box
+const _mbHold = 2.2; // extra time on each line's last note
+const _mbTail = 1.0; // a breath before the tune comes round again
+
+final double _musicBoxSeconds = () {
+  var t = 0.0;
+  for (final line in _laoDuangDuean) {
+    t += line.length * _mbNote + _mbHold;
+  }
+  return (t + _mbTail).roundToDouble();
+}();
+
+Float64List _thaiMusicBox(_Gen g) {
+  final out = Float64List(g.n);
+  // do = A4: the tune sits in a music box's sweet range (A4-E6).
+  const steps = [0, 2, 4, 5, 7, 9, 11];
+  double pitch(int n) => _midi(69 + steps[n % 7] + 12 * (n ~/ 7));
+  Float64List tine(double f, double len) => g.tone(len, (t) {
+    final e = _env(t, 0.003, 1.1);
+    return (math.sin(2 * math.pi * f * t) +
+            0.3 * math.sin(2 * math.pi * f * 2 * t) * math.exp(-t * 4) +
+            0.08 * math.sin(2 * math.pi * f * 5.4 * t) * math.exp(-t * 18)) *
+        e;
+  });
+  var at = 0.0;
+  for (final line in _laoDuangDuean) {
+    for (var k = 0; k < line.length; k++) {
+      final last = k == line.length - 1;
+      g.add(out, at, tine(pitch(line[k]), last ? 5.0 : 2.8), g.range(0.42, 0.5));
+      // A soft low do or sol under the start of each group of four.
+      if (k % 4 == 0) g.add(out, at, tine(_midi(k % 8 == 0 ? 45 : 52), 3.5), 0.22);
+      at += _mbNote + (last ? _mbHold : 0);
+    }
+  }
+  return _reverb(g, out, mix: 0.3, size: 1.2);
+}
+
+Float64List _pianoNote(_Gen g, double f, double dur) {
+  return g.tone(dur, (t) {
+    var v = 0.0;
+    for (var h = 1; h <= 8; h++) {
+      final fh = f * h * math.sqrt(1 + 0.0004 * h * h);
+      if (fh > g.sr / 2.2) break;
+      v += math.sin(2 * math.pi * fh * t) * math.pow(h, -1.4) * math.exp(-t * (0.5 + 0.45 * h));
+    }
+    // Soft felt hammer: a gentle attack, and a release at the end.
+    final rel = math.min(1.0, (dur - t) / 0.3);
+    return v * math.min(1, t / 0.008) * rel;
+  });
+}
+
+/// An original slow piano piece (written for this app): sixteen bars at 60
+/// beats a minute, a quiet broken chord under a simple tune.
+Float64List _slowPiano(_Gen g) {
+  final out = Float64List(g.n);
+  const beat = 1.0;
+  // Chord per bar as root, fifth, tenth (MIDI).
+  const chords = [
+    [48, 55, 64], [45, 52, 60], [41, 48, 57], [43, 50, 59], //
+    [48, 55, 64], [40, 47, 55], [41, 48, 57], [43, 50, 59],
+    [45, 52, 60], [41, 48, 57], [48, 55, 64], [43, 50, 59],
+    [41, 48, 57], [43, 50, 59], [48, 55, 64], [48, 55, 64],
+  ];
+  // Tune: (MIDI note or 0 for rest, beats).
+  const tune = [
+    [(76, 2), (79, 2)], [(81, 3), (79, 1)], [(77, 2), (76, 1), (74, 1)], [(74, 4)], //
+    [(76, 2), (79, 2)], [(83, 3), (81, 1)], [(81, 2), (79, 1), (77, 1)], [(79, 4)],
+    [(84, 2), (83, 1), (81, 1)], [(81, 2), (79, 2)], [(76, 2), (79, 1), (76, 1)], [(74, 4)],
+    [(72, 2), (74, 1), (76, 1)], [(77, 2), (74, 2)], [(72, 4)], [(0, 4)],
+  ];
+  for (var bar = 0; bar < 16; bar++) {
+    final t0 = bar * 4 * beat;
+    final c = chords[bar];
+    // Broken chord: root, fifth, tenth, fifth; the last bar just rings.
+    final pattern = bar == 15 ? [c[0]] : [c[0], c[1], c[2], c[1]];
+    for (var k = 0; k < pattern.length; k++) {
+      g.add(out, t0 + k * beat, _pianoNote(g, _midi(pattern[k]), bar == 15 ? 4 : 2.5), k == 0 ? 0.2 : 0.13);
+    }
+    var t = t0;
+    for (final (m, len) in tune[bar]) {
+      if (m > 0) g.add(out, t + g.range(0, 0.02), _pianoNote(g, _midi(m), len * beat + 1.2), g.range(0.36, 0.42));
+      t += len * beat;
+    }
+  }
+  return _reverb(g, out, mix: 0.3, size: 1.2);
 }

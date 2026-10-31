@@ -62,15 +62,17 @@ void main() {
     expect(settings.soundOn, isFalse);
   });
 
-  test('new sound lists: old choices reset, except the train', () async {
+  test('new sound lists: old choices carried over where the sound still exists', () async {
     SharedPreferences.setMockInitialValues({'ambientIndex': 19, 'soundIndex': 7});
     var settings = await Settings.load();
-    expect(settings.ambientIndex, 0); // the train keeps playing
+    expect(settings.ambientIndex, -1);
     expect(settings.soundIndex, 0);
     expect(settings.flipAnimation, isTrue);
-    SharedPreferences.setMockInitialValues({'ambientIndex': 4});
+    SharedPreferences.setMockInitialValues({'ambient2': 0});
+    expect((await Settings.load()).ambientIndex, -1); // the train is gone
+    SharedPreferences.setMockInitialValues({'ambient2': 3});
     settings = await Settings.load();
-    expect(settings.ambientIndex, -1);
+    expect(settings.ambientIndex, 2); // soft rain stays soft rain
     settings.ambientIndex = 3;
     expect(settings.ambientIndex, 3);
   });

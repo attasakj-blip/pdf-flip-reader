@@ -101,16 +101,18 @@ class Settings extends ChangeNotifier {
   double get volume => _prefs.getDouble('volume') ?? 0.8;
   set volume(double v) => _set(() => _prefs.setDouble('volume', v));
 
-  /// Background sound while reading: -1 off, else 0-8 (see ambient.dart).
-  /// The earlier 30 sounds (key ambientIndex) were replaced by slow ones;
-  /// whoever had the train keeps it.
+  /// Background sound while reading: -1 off, else 0-9 (see ambient.dart).
+  /// Lists changed twice (key ambientIndex: 30 sounds; ambient2: nine with
+  /// the train first); the train is gone, others keep their sound.
   int get ambientIndex {
-    final v = _prefs.getInt('ambient2');
-    if (v != null) return v.clamp(-1, 8);
-    return _prefs.getInt('ambientIndex') == 19 ? 0 : -1;
+    final v = _prefs.getInt('ambient3');
+    if (v != null) return v.clamp(-1, 9);
+    final old = _prefs.getInt('ambient2');
+    if (old != null) return old >= 1 ? (old - 1).clamp(0, 9) : -1;
+    return -1;
   }
 
-  set ambientIndex(int v) => _set(() => _prefs.setInt('ambient2', v));
+  set ambientIndex(int v) => _set(() => _prefs.setInt('ambient3', v));
 
   double get ambientVolume => _prefs.getDouble('ambientVolume') ?? 0.4;
   set ambientVolume(double v) => _set(() => _prefs.setDouble('ambientVolume', v));
