@@ -309,7 +309,11 @@ class MarkupLayer extends StatefulWidget {
     required this.onCancel,
     this.pageChars,
     this.erasing = false,
+    this.canFinishEmpty = false,
   });
+
+  /// Done stays available with no marks left (they were all erased).
+  final bool canFinishEmpty;
 
   /// Start with the eraser rather than the pen.
   final bool erasing;
@@ -700,7 +704,7 @@ class _MarkupLayerState extends State<MarkupLayer> {
             hint: s.markHint,
             confirm: s.done,
             onCancel: widget.onCancel,
-            onConfirm: widget.marks.isEmpty ? null : widget.onDone,
+            onConfirm: widget.marks.isEmpty && !widget.canFinishEmpty ? null : widget.onDone,
           ),
         ),
         Positioned(

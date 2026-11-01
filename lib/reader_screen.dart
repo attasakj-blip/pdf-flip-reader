@@ -96,6 +96,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   final _marks = <Mark>[];
   // The markup tools open with the eraser chosen (from its own button).
   bool _markErase = false;
+  // Marks written by each markup step (by the step's copy), so that the
+  // newest markup steps can be taken back for erasing, moving and resizing.
+  final _stepMarks = <String, ({List<Mark> marks, Map<int, double> aspects})>{};
+  // Markup steps taken back while the markup tools are open; Cancel puts
+  // them back as they were.
+  final _pulled = <_Step>[];
   // Text boxes being placed, and the style the next one starts with.
   final _notes = <TextNote>[];
   final _noteStyle = TextNote(text: '', flags: [], font: '', size: 16, color: const Color(0xFF111111));
@@ -454,30 +460,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
           ),
         ],
         EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
-        EdgeMenuItem(
-          icon: Icons.format_color_text,
-          label: s.markup,
-          onTap: _fromEdge(() {
-            if (_editAllowed()) {
-              setState(() {
-                _markErase = false;
-                _tool = _Tool.markup;
-              });
-            }
-          }),
-        ),
-        EdgeMenuItem(
-          icon: Icons.auto_fix_normal,
-          label: s.eraser,
-          onTap: _fromEdge(() {
-            if (_editAllowed()) {
-              setState(() {
-                _markErase = true;
-                _tool = _Tool.markup;
-              });
-            }
-          }),
-        ),
+        EdgeMenuItem(icon: Icons.format_color_text, label: s.markup, onTap: _fromEdge(_openMarkup)),
+        EdgeMenuItem(icon: Icons.auto_fix_normal, label: s.eraser, onTap: _fromEdge(() => _openMarkup(erase: true))),
         EdgeMenuItem(icon: Icons.text_fields, label: s.insertText, onTap: _fromEdge(_startText)),
         EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
         EdgeMenuItem(
@@ -852,16 +836,70 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     final aspects = {..._markAspects, for (final s in _slots) s.page: s.rect.height / s.rect.width};
     _markAspects.clear();
     final marks = List<Mark>.of(_marks);
+    final pulled = List<_Step>.of(_pulled);
+    _pulled.clear();
     setState(() {
       _tool = _Tool.none;
       _marks.clear();
     });
-    await _runEdit(
+    // The steps taken back are replaced by this one.
+    for (final h in pulled) {
+      File(h.path).delete().ignore();
+      _stepMarks.remove(h.path);
+    }
+    if (marks.isEmpty) {
+      // Everything was erased: the book is as it was before those steps.
+      if (pulled.isNotEmpty) _toast(S.of(context).undoneSteps(pulled.length));
+      return;
+    }
+    final path = await _runEdit(
       keepPage: marks.first.page,
       suffix: 'marked',
       label: S.of(context).stepMarkup(_pageList(marks.map((m) => m.page))),
       edit: (dest) async => PdfEditor.stampAll(_path, dest, await markStamps(marks, aspects)),
     );
+    if (path != null) _stepMarks[path] = (marks: marks, aspects: aspects);
+  }
+
+  /// Opens the markup tools. The newest markup steps, if nothing else was
+  /// done after them, come back as marks that can still be erased, moved
+  /// and resized; Done writes them again as one step.
+  Future<void> _openMarkup({bool erase = false}) async {
+    if (!_editAllowed()) return;
+    final back = <_Step>[];
+    while (_history.isNotEmpty && _stepMarks.containsKey(_history.last.path)) {
+      back.insert(0, _history.removeLast());
+    }
+    if (back.isNotEmpty) {
+      for (final h in back) {
+        final m = _stepMarks[h.path]!;
+        _marks.addAll(m.marks);
+        _markAspects.addAll(m.aspects);
+      }
+      _pulled
+        ..clear()
+        ..addAll(back);
+      await _reload(_firstVisiblePage);
+      if (!mounted) return;
+    }
+    setState(() {
+      _markErase = erase;
+      _tool = _Tool.markup;
+    });
+  }
+
+  /// Leaves the markup tools without changes: steps taken back return.
+  Future<void> _cancelMarkup() async {
+    final back = List<_Step>.of(_pulled);
+    _pulled.clear();
+    _markAspects.clear();
+    setState(() {
+      _tool = _Tool.none;
+      _marks.clear();
+    });
+    if (back.isEmpty) return;
+    _history.addAll(back);
+    await _reload(_firstVisiblePage);
   }
 
   bool get _idle => _flip == null && !_anim.isAnimating && !_loading && _cache != null;
@@ -1032,7 +1070,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   /// Makes an edited copy with [edit], asks how to save it and shows the
   /// result. The original stays as it was if anything fails or the user
   /// backs out.
-  Future<void> _runEdit({
+  Future<String?> _runEdit({
     required int keepPage,
     required String suffix,
     required String label,
@@ -1049,11 +1087,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         _toast(S.of(context).saveFailed(e));
       }
       File(dest).delete().ignore();
-      return;
+      return null;
     }
     if (!mounted) {
       File(dest).delete().ignore();
-      return;
+      return null;
     }
     _history.add((
       path: dest,
@@ -1066,6 +1104,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     if (_history.length > _maxUndo) File(_history.removeAt(0).path).delete().ignore();
     _showOriginal = false;
     await _reload(keepPage);
+    return dest;
   }
 
   /// Deletes every unsaved step's copy.
@@ -1074,6 +1113,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       File(h.path).delete().ignore();
     }
     _history.clear();
+    _stepMarks.clear();
     _showOriginal = false;
   }
 
@@ -1557,11 +1597,10 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                     pan: _screenPan,
                     onZoom: _setScreenZoom,
                     erasing: _markErase,
+                    // With marks taken back, Done also works once all are erased.
+                    canFinishEmpty: _pulled.isNotEmpty,
                     onDone: _saveMarks,
-                    onCancel: () => setState(() {
-                      _tool = _Tool.none;
-                      _marks.clear();
-                    }),
+                    onCancel: _cancelMarkup,
                   ),
                 ),
               if (_tool == _Tool.text)
@@ -1726,12 +1765,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'sign') _startSigning();
                 if (v == 'copyPage') _copyPage();
                 if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
-                if (v == 'markup' && _editAllowed()) {
-                  setState(() {
-                    _markErase = false;
-                    _tool = _Tool.markup;
-                  });
-                }
+                if (v == 'markup') _openMarkup();
                 if (v == 'text') _startText();
                 if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
                 if (v == 'undoList') _showUndoList();
