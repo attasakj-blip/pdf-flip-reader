@@ -525,7 +525,8 @@ Float64List _distantBowl(_Gen g) {
 /// Khang Khao Kin Kluai (ค้างคาวกินกล้วย, "the bat eats bananas"), a
 /// traditional Thai folk melody, in the public domain. Thai notation: four
 /// slots to a group, '-' holds the note before; a ' after a note means an
-/// octave up. Played slowly, it loops after about 75 seconds.
+/// octave up. Each pair of lines is played twice, as the tune is sung
+/// ("2 รอบ"). Played slowly, it loops after about three minutes.
 const _khangKhao = [
   '-l-s -ssm\' --s\'m\' --r\'m\' --r\'m\' --s\'m\' s\'m\'r\'d\' --r\'m\'',
   '-l-s -ssm\' --s\'m\' --r\'m\' --s\'m\' --r\'m\' s\'m\'r\'d\' --r\'d\'',
@@ -535,7 +536,7 @@ const _khangKhao = [
   '---- -l-l sld\'l sm-s -m-l sm-s -m-r smmm',
 ];
 
-const _mbSlot = 0.38; // seconds per slot: slow, like a winding-down box
+const _mbSlot = 0.475; // seconds per slot: slow, like a winding-down box
 
 /// Each line as (slot, scale step) onsets; steps 0 = do ... 6 = ti, +7 up.
 List<List<(int, int)>> _parseThai(List<String> lines) => [
@@ -558,7 +559,10 @@ List<List<(int, int)>> _parseThai(List<String> lines) => [
     }(),
 ];
 
-final double _musicBoxSeconds = _khangKhao.length * 32 * _mbSlot;
+/// Line order with the repeats: 1 2 1 2, 3 4 3 4, 5 6 5 6.
+const _khangKhaoOrder = [0, 1, 0, 1, 2, 3, 2, 3, 4, 5, 4, 5];
+
+final double _musicBoxSeconds = _khangKhaoOrder.length * 32 * _mbSlot;
 
 Float64List _thaiMusicBox(_Gen g) {
   final out = Float64List(g.n);
@@ -573,9 +577,9 @@ Float64List _thaiMusicBox(_Gen g) {
         e;
   });
   final lines = _parseThai(_khangKhao);
-  for (var l = 0; l < lines.length; l++) {
+  for (var l = 0; l < _khangKhaoOrder.length; l++) {
     final t0 = l * 32 * _mbSlot;
-    for (final (slot, step) in lines[l]) {
+    for (final (slot, step) in lines[_khangKhaoOrder[l]]) {
       g.add(out, t0 + slot * _mbSlot, tine(pitch(step), 2.8), g.range(0.42, 0.5));
     }
     // A soft low do or sol on every second group.
