@@ -492,19 +492,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         on: _settings.flipAnimation,
         onTap: _fromEdge(_chooseFlipStyle),
       ),
+      // Single and two pages work like the switch in the top bar: exactly
+      // one of them is lit.
+      EdgeMenuItem(
+        icon: Icons.crop_portrait,
+        label: s.singlePage,
+        on: !_twoPage,
+        onTap: () => _setMode(twoPage: false),
+      ),
       EdgeMenuItem(
         icon: Icons.menu_book,
         label: s.twoPage,
         on: _twoPage,
-        onTap: () => _setMode(twoPage: !_twoPage),
+        onTap: () => _setMode(twoPage: true),
       ),
-      EdgeMenuItem(
-        icon: Icons.auto_stories,
-        label: s.coverAlone,
-        on: _coverAlone,
-        enabled: _twoPage,
-        onTap: () => _setMode(coverAlone: !_coverAlone),
-      ),
+      // Only means something with two pages, so it is shown only then.
+      if (_twoPage)
+        EdgeMenuItem(
+          icon: Icons.auto_stories,
+          label: s.coverAlone,
+          on: _coverAlone,
+          onTap: () => _setMode(coverAlone: !_coverAlone),
+        ),
       EdgeMenuItem(icon: Icons.swap_horiz, label: s.rtlPages, on: _rtl, onTap: () => _setRtl(!_rtl)),
       EdgeMenuItem(
         icon: Icons.dark_mode,
@@ -1665,7 +1674,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 const PopupMenuDivider(),
                 CheckedPopupMenuItem(
                   value: 'cover',
-                  checked: _coverAlone,
+                  checked: _twoPage && _coverAlone,
                   enabled: _twoPage,
                   child: Text(S.of(context).coverAlone),
                 ),
