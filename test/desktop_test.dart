@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pdf_flip_reader/edge_menu.dart';
 import 'package:pdf_flip_reader/library_screen.dart';
 import 'package:pdf_flip_reader/native_files.dart';
 import 'package:pdf_flip_reader/page_scroller.dart';
@@ -35,6 +36,38 @@ void main() {
     await tester.tapAt(Offset(box.right - 14, box.center.dy));
     await tester.pump();
     expect(state.index, inInclusiveRange(45, 55));
+  });
+
+  testWidgets('Windows icon rail runs the edge-menu items', (tester) async {
+    var taps = 0, off = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              SizedBox(
+                width: 60,
+                child: EdgeRail(
+                  left: true,
+                  items: [
+                    EdgeMenuItem(icon: Icons.draw, label: 'Sign', onTap: () => taps++),
+                    EdgeMenuItem(icon: Icons.dark_mode, label: 'Night', on: true, onTap: () => taps++),
+                    EdgeMenuItem(icon: Icons.auto_stories, label: 'Cover', enabled: false, onTap: () => off++),
+                  ],
+                ),
+              ),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.draw));
+    await tester.tap(find.byIcon(Icons.dark_mode));
+    await tester.tap(find.byIcon(Icons.auto_stories));
+    expect(taps, 2);
+    expect(off, 0);
+    expect(find.byType(Tooltip), findsNWidgets(3));
   });
 }
 

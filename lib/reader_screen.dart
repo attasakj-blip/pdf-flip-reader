@@ -421,92 +421,101 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     ),
   );
 
+  /// The edit tools (left) or the translate and view tools (right). Phones
+  /// show them in the edge menus; Windows shows them as icon rails.
+  List<EdgeMenuItem> _edgeItems(bool left) {
+    final s = S.of(context);
+    if (left) {
+      return [
+        EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
+        EdgeMenuItem(
+          icon: Icons.format_color_text,
+          label: s.markup,
+          onTap: _fromEdge(() {
+            if (_editAllowed()) setState(() => _tool = _Tool.markup);
+          }),
+        ),
+        EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
+        EdgeMenuItem(
+          icon: Icons.crop,
+          label: s.copyAreaImage,
+          onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
+        ),
+        EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
+        if (_history.isNotEmpty)
+          EdgeMenuItem(icon: Icons.history, label: s.undoChanges, onTap: _fromEdge(_showUndoList)),
+      ];
+    }
+    return [
+      EdgeMenuItem(
+        icon: Icons.translate,
+        label: s.translateArea,
+        onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
+      ),
+      // Windows has no translator on the computer, so whole-document
+      // translation is left out there ("Translate text" stays).
+      if (DocTranslator.inApp)
+        EdgeMenuItem(
+          icon: Icons.g_translate,
+          label: s.translateDoc.replaceAll('…', ''),
+          onTap: _fromEdge(_translateDoc),
+        ),
+      EdgeMenuItem(
+        icon: Icons.document_scanner,
+        label: s.ocrArea,
+        onTap: _fromEdge(() => setState(() => _tool = _Tool.ocr)),
+      ),
+      if (_beforeTranslation != null)
+        EdgeMenuItem(icon: Icons.compare, label: s.showOriginal, on: _showOriginal, onTap: _fromEdge(_toggleOriginal)),
+      EdgeMenuItem(
+        icon: Icons.auto_stories_outlined,
+        label: s.flipEffect,
+        on: _settings.flipAnimation,
+        onTap: _fromEdge(_chooseFlipStyle),
+      ),
+      EdgeMenuItem(
+        icon: Icons.auto_stories,
+        label: s.coverAlone,
+        on: _coverAlone,
+        enabled: _twoPage,
+        onTap: () => _setMode(coverAlone: !_coverAlone),
+      ),
+      EdgeMenuItem(icon: Icons.swap_horiz, label: s.rtlPages, on: _rtl, onTap: () => _setRtl(!_rtl)),
+      EdgeMenuItem(
+        icon: Icons.dark_mode,
+        label: s.nightMode,
+        on: _settings.nightMode,
+        onTap: () => setState(() => _settings.nightMode = !_settings.nightMode),
+      ),
+    ];
+  }
+
   Widget _edgeMenu(bool left) {
     final s = S.of(context);
     return Positioned.fill(
-      child: left
-          ? EdgeMenu(
-              left: true,
-              progress: _edge,
-              title: s.edgeEditTitle,
-              icon: Icons.edit_document,
-              onClose: _closeEdge,
-              items: [
-                EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
-                EdgeMenuItem(
-                  icon: Icons.format_color_text,
-                  label: s.markup,
-                  onTap: _fromEdge(() {
-                    if (_editAllowed()) setState(() => _tool = _Tool.markup);
-                  }),
-                ),
-                EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
-                EdgeMenuItem(
-                  icon: Icons.crop,
-                  label: s.copyAreaImage,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
-                ),
-                EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
-                if (_history.isNotEmpty)
-                  EdgeMenuItem(icon: Icons.history, label: s.undoChanges, onTap: _fromEdge(_showUndoList)),
-              ],
-            )
-          : EdgeMenu(
-              left: false,
-              progress: _edge,
-              title: s.edgeViewTitle,
-              icon: Icons.auto_awesome,
-              onClose: _closeEdge,
-              items: [
-                EdgeMenuItem(
-                  icon: Icons.translate,
-                  label: s.translateArea,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
-                ),
-                // Windows has no translator on the computer, so whole-document
-                // translation is left out there ("Translate text" stays).
-                if (DocTranslator.inApp)
-                  EdgeMenuItem(
-                    icon: Icons.g_translate,
-                    label: s.translateDoc.replaceAll('…', ''),
-                    onTap: _fromEdge(_translateDoc),
-                  ),
-                EdgeMenuItem(
-                  icon: Icons.document_scanner,
-                  label: s.ocrArea,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.ocr)),
-                ),
-                if (_beforeTranslation != null)
-                  EdgeMenuItem(
-                    icon: Icons.compare,
-                    label: s.showOriginal,
-                    on: _showOriginal,
-                    onTap: _fromEdge(_toggleOriginal),
-                  ),
-                EdgeMenuItem(
-                  icon: Icons.auto_stories_outlined,
-                  label: s.flipEffect,
-                  on: _settings.flipAnimation,
-                  onTap: _fromEdge(_chooseFlipStyle),
-                ),
-                EdgeMenuItem(
-                  icon: Icons.auto_stories,
-                  label: s.coverAlone,
-                  on: _coverAlone,
-                  enabled: _twoPage,
-                  onTap: () => _setMode(coverAlone: !_coverAlone),
-                ),
-                EdgeMenuItem(icon: Icons.swap_horiz, label: s.rtlPages, on: _rtl, onTap: () => _setRtl(!_rtl)),
-                EdgeMenuItem(
-                  icon: Icons.dark_mode,
-                  label: s.nightMode,
-                  on: _settings.nightMode,
-                  onTap: () => setState(() => _settings.nightMode = !_settings.nightMode),
-                ),
-              ],
-            ),
+      child: EdgeMenu(
+        left: left,
+        progress: _edge,
+        title: left ? s.edgeEditTitle : s.edgeViewTitle,
+        icon: left ? Icons.edit_document : Icons.auto_awesome,
+        onClose: _closeEdge,
+        items: _edgeItems(left),
+      ),
     );
   }
+
+  /// Windows: the edge menus' tools as a column of icons down each side.
+  static const _railWidth = 60.0;
+  bool get _rails => Desktop.active;
+
+  Widget _rail(bool left) => Positioned(
+    top: 0,
+    bottom: 0,
+    left: left ? 0 : null,
+    right: left ? null : 0,
+    width: _railWidth,
+    child: EdgeRail(left: left, items: _edgeItems(left)),
+  );
 
   // ---------------------------------------------------------------- zoom ---
 
@@ -1364,6 +1373,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         child: Stack(
           children: [
             Positioned.fill(
+              left: _rails ? _railWidth : 0,
+              right: _rails ? _railWidth : 0,
               child: cache == null
                   ? const SizedBox.shrink()
                   : Listener(onPointerSignal: _onWheel, child: _bookView(cache)),
@@ -1419,7 +1430,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ),
               ),
             if (cache != null && _tool == _Tool.none && _beforeTranslation != null) _originalSwitch(),
-            if (cache != null && _tool == _Tool.none) ...[_edgeStrip(true), _edgeStrip(false)],
+            if (cache != null && _tool == _Tool.none && !_rails) ...[_edgeStrip(true), _edgeStrip(false)],
+            if (cache != null && _tool == _Tool.none && _rails) ...[_rail(true), _rail(false)],
             if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
             if (_loading) const Center(child: CircularProgressIndicator()),
           ],
@@ -1675,7 +1687,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       duration: const Duration(milliseconds: 200),
       top: pad.top + 72,
       bottom: pad.bottom + 72,
-      right: _controlsVisible ? pad.right + 26 : -80,
+      right: _controlsVisible ? pad.right + 26 + (_rails ? _railWidth : 0) : -80,
       width: 36,
       child: PageScroller(
         count: _spreads.length,
