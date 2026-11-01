@@ -22,6 +22,7 @@ import 'ocr.dart';
 import 'ocr_dialog.dart';
 import 'page_cache.dart';
 import 'page_clipboard.dart';
+import 'page_scroller.dart';
 import 'pdf_edit.dart';
 import 'save_flow.dart';
 import 'settings.dart';
@@ -751,7 +752,15 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
 
   Future<void> _startSigning() async {
     if (!_editAllowed()) return;
-    final sig = await showSignaturePad(context);
+    final sig = await showSignaturePad(
+      context,
+      color: Color(_settings.signColor),
+      width: _settings.signWidth,
+      onStyle: (c, w) {
+        _settings.signColor = c.toARGB32();
+        _settings.signWidth = w;
+      },
+    );
     if (sig == null || !mounted) return;
     setState(() {
       _signature = sig;
@@ -1046,7 +1055,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     if (!DocTranslator.inApp) {
       // Windows: no translator on the computer; Google Translate's website
       // opens with the text filled in.
-      await openGoogleTranslate(context, segments.map((g) => cleanText(g.block.text)).join('\n\n'), to);
+      await showWebTranslation(context, segments.map((g) => cleanText(g.block.text)).join('\n\n'), to);
       return;
     }
     final message = ValueNotifier(s.translating);
@@ -1220,7 +1229,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     final to = await pickTargetLanguage(context, _settings);
     if (to == null || !mounted) return;
     if (!DocTranslator.inApp) {
-      await openGoogleTranslate(context, cleanText(text), to);
+      await showWebTranslation(context, cleanText(text), to);
       return;
     }
     final message = ValueNotifier(s.translating);
@@ -1255,10 +1264,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
 
   // --------------------------------------------------------------- build ---
 
-  String get _pageLabel {
+  String get _pageLabel => _labelFor(_index);
+
+  String _labelFor(int index) {
     final total = _cache?.pageCount ?? 0;
     if (_spreads.isEmpty) return '';
-    final pages = _spreads[_index].pages.map((p) => p + 1).toList();
+    final pages = _spreads[index.clamp(0, _spreads.length - 1)].pages.map((p) => p + 1).toList();
     final range = pages.length == 2 ? '${pages[0]}–${pages[1]}' : '${pages.first}';
     return S.of(context).pageLabel(range, total);
   }
@@ -1291,6 +1302,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
             ),
             if (cache != null && _tool == _Tool.none) _topBar(),
             if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
+            if (cache != null && _spreads.length > 2 && _tool == _Tool.none) _scroller(),
             if (_tool == _Tool.sign && _signature != null)
               Positioned.fill(
                 child: PlaceSignature(
@@ -1577,6 +1589,38 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     );
   }
 
+  /// Shows spread [i] at once (slider, scroll bar), without a page turn.
+  void _showIndex(int i) {
+    if (_flip != null || _anim.isAnimating || i == _index) return;
+    setState(() {
+      _index = i.clamp(0, _spreads.length - 1);
+      _zoom = 1;
+      _pan = Offset.zero;
+    });
+    _prefetch();
+  }
+
+  /// The scroll bar on the right: drag to move quickly through long books.
+  /// It sits just inside the right edge strip, which opens the edge menu.
+  Widget _scroller() {
+    final pad = MediaQuery.paddingOf(context);
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      top: pad.top + 72,
+      bottom: pad.bottom + 72,
+      right: _controlsVisible ? pad.right + 26 : -80,
+      width: 36,
+      child: PageScroller(
+        count: _spreads.length,
+        index: _index,
+        labelFor: _labelFor,
+        onChanged: _showIndex,
+        onEnd: _saveProgress,
+        tooltip: S.of(context).goToPageMenu,
+      ),
+    );
+  }
+
   Widget _bottomBar() => AnimatedPositioned(
     duration: const Duration(milliseconds: 200),
     bottom: _controlsVisible ? 0 : -120,
@@ -1600,20 +1644,16 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   max: (_spreads.length - 1).toDouble(),
                   divisions: _spreads.length - 1,
                   label: _pageLabel,
-                  onChanged: _flip != null
-                      ? null
-                      : (v) {
-                          setState(() {
-                            _index = v.round();
-                            _zoom = 1;
-                            _pan = Offset.zero;
-                          });
-                          _prefetch();
-                        },
+                  onChanged: _flip != null ? null : (v) => _showIndex(v.round()),
                   onChangeEnd: (_) => _saveProgress(),
                 ),
               ),
               IconButton(icon: const Icon(Icons.chevron_right), onPressed: _hasNext ? () => _turn(true) : null),
+              IconButton(
+                tooltip: S.of(context).goToPageMenu,
+                icon: const Icon(Icons.pin_outlined),
+                onPressed: _askPage,
+              ),
             ],
           ),
         ),

@@ -95,6 +95,12 @@ class Settings extends ChangeNotifier {
   set soundIndex(int v) => _set(() => _prefs.setInt('flipSound2', v));
 
   /// Animate page turns (the curling page). Off: the next page just appears.
+  /// Signature ink colour (ARGB) and line width, as last chosen.
+  int get signColor => _prefs.getInt('signColor') ?? 0xFF111111;
+  set signColor(int v) => _set(() => _prefs.setInt('signColor', v));
+  double get signWidth => (_prefs.getDouble('signWidth') ?? 3.5).clamp(1.0, 12.0);
+  set signWidth(double v) => _set(() => _prefs.setDouble('signWidth', v));
+
   bool get flipAnimation => _prefs.getBool('flipAnimation') ?? true;
   set flipAnimation(bool v) => _set(() => _prefs.setBool('flipAnimation', v));
 

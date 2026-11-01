@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Things that differ on the Windows desktop version.
 class Desktop {
@@ -28,8 +29,9 @@ class Desktop {
 
   /// Opens [url] in the default web browser.
   static Future<void> openUrl(String url) async {
-    final r = await Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
-    if (r.exitCode != 0) throw ProcessException('rundll32', [url], '${r.stderr}', r.exitCode);
+    if (!await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)) {
+      throw StateError('could not open $url');
+    }
   }
 
   /// Puts the picture in [path] on the Windows clipboard, so it can be

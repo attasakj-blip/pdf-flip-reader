@@ -166,7 +166,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Dashed line',
     'undo': 'Undo',
     'unsavedTitle': 'Save your changes?',
-    'unsavedBody': 'This document has changes that are not saved yet (signatures, markings, deleted or translated pages).',
+    'unsavedBody':
+        'This document has changes that are not saved yet (signatures, markings, deleted or translated pages).',
     'saveChanges': 'Save…',
     'discardChanges': 'Don\'t save',
     'saveMenu': 'Save changes…',
@@ -193,7 +194,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Showing the original, before translating',
     'backToTranslationFirst': 'Switch back to the translation before editing',
     'openGoogleTranslate': 'Open in Google Translate',
-    'translateNote': 'Translation inside the app works offline and is basic. For a better translation, open the text in Google Translate (needs internet).',
+    'translateNote':
+        'Translation inside the app works offline and is basic. For a better translation, open the text in Google Translate (needs internet).',
     'ocrArea': 'Get text from a scan',
     'ocrHint': 'Drag a box over the text you want to get',
     'ocrButton': 'Get text',
@@ -222,6 +224,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'Music box: Khang Khao Kin Kluai (old Thai melody)',
     'b10': 'Slow piano',
     'ambientHintSlow': 'Slow, calm sounds made on your phone. They help you focus; pick Off for silence.',
+    'webTranslateNote':
+        'On Windows, Pagelume translates with Google Translate in your web browser. Check the text, then press Translate.',
+    'startTranslate': 'Translate',
+    'inkColor': 'Ink colour',
+    'lineThickness': 'Line thickness',
   },
   'th': {
     'pickPdf': 'เลือกไฟล์ PDF จากเครื่อง',
@@ -389,7 +396,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'กำลังแสดงต้นฉบับ (ก่อนแปล)',
     'backToTranslationFirst': 'กลับไปที่คำแปลก่อน แล้วจึงแก้ไขเอกสาร',
     'openGoogleTranslate': 'เปิดใน Google แปลภาษา',
-    'translateNote': 'การแปลในแอปทำงานแบบออฟไลน์และยังเป็นระดับพื้นฐาน ถ้าต้องการคำแปลที่ดีกว่า ให้กด "เปิดใน Google แปลภาษา" (ต้องใช้อินเทอร์เน็ต)',
+    'translateNote':
+        'การแปลในแอปทำงานแบบออฟไลน์และยังเป็นระดับพื้นฐาน ถ้าต้องการคำแปลที่ดีกว่า ให้กด "เปิดใน Google แปลภาษา" (ต้องใช้อินเทอร์เน็ต)',
     'ocrArea': 'ดึงข้อความจากภาพ/เอกสารสแกน',
     'ocrHint': 'ลากกรอบครอบข้อความที่ต้องการดึงออกมา',
     'ocrButton': 'ดึงข้อความ',
@@ -417,7 +425,12 @@ const translations = <String, Map<String, String>>{
     'b8': 'ขันทิเบตไกลๆ',
     'b9': 'กล่องดนตรี: ค้างคาวกินกล้วย (เพลงไทยเดิม)',
     'b10': 'เปียโนช้าๆ',
-    'ambientHintSlow': 'เสียงจังหวะช้า ฟังสบาย สร้างขึ้นในเครื่อง ช่วยให้มีสมาธิขณะอ่าน หรือเลือก "ปิด" ถ้าอยากอ่านเงียบๆ',
+    'ambientHintSlow':
+        'เสียงจังหวะช้า ฟังสบาย สร้างขึ้นในเครื่อง ช่วยให้มีสมาธิขณะอ่าน หรือเลือก "ปิด" ถ้าอยากอ่านเงียบๆ',
+    'webTranslateNote': 'บน Windows แอปจะแปลด้วย Google Translate ในเว็บเบราว์เซอร์ ตรวจข้อความแล้วกดปุ่ม "แปล" ได้เลย',
+    'startTranslate': 'แปล',
+    'inkColor': 'สีหมึก',
+    'lineThickness': 'ความหนาของเส้น',
   },
   'zh': {
     'pickPdf': '选择 PDF 文件',
@@ -614,6 +627,10 @@ const translations = <String, Map<String, String>>{
     'b9': '八音盒：蝙蝠吃香蕉（泰国古曲）',
     'b10': '舒缓钢琴',
     'ambientHintSlow': '在手机上生成的缓慢、宁静的声音，帮助专注阅读；想安静就选“关闭”。',
+    'webTranslateNote': '在 Windows 上，Pagelume 会在网页浏览器中用 Google 翻译进行翻译。检查文字后按“翻译”。',
+    'startTranslate': '翻译',
+    'inkColor': '墨水颜色',
+    'lineThickness': '线条粗细',
   },
   'zh_Hant': {
     'pickPdf': '選擇 PDF 檔案',
@@ -810,6 +827,10 @@ const translations = <String, Map<String, String>>{
     'b9': '音樂盒：蝙蝠吃香蕉（泰國古曲）',
     'b10': '舒緩鋼琴',
     'ambientHintSlow': '在手機上產生的緩慢、寧靜的聲音，幫助專心閱讀；想安靜就選「關閉」。',
+    'webTranslateNote': '在 Windows 上，Pagelume 會在網頁瀏覽器中用 Google 翻譯進行翻譯。檢查文字後按「翻譯」。',
+    'startTranslate': '翻譯',
+    'inkColor': '墨水顏色',
+    'lineThickness': '線條粗細',
   },
   'ja': {
     'pickPdf': 'PDF ファイルを選ぶ',
@@ -1006,6 +1027,10 @@ const translations = <String, Map<String, String>>{
     'b9': 'オルゴール：コウモリとバナナ（タイの古い旋律）',
     'b10': 'ゆったりピアノ',
     'ambientHintSlow': '端末で作るゆっくり穏やかな音です。集中を助けます。静かに読みたいときは「オフ」に。',
+    'webTranslateNote': 'Windows 版では、Web ブラウザーの Google 翻訳で翻訳します。テキストを確認して「翻訳」を押してください。',
+    'startTranslate': '翻訳',
+    'inkColor': 'インクの色',
+    'lineThickness': '線の太さ',
   },
   'ko': {
     'pickPdf': 'PDF 파일 선택',
@@ -1202,6 +1227,10 @@ const translations = <String, Map<String, String>>{
     'b9': '오르골: 캉카우 낀끌루어이 (태국 옛 선율)',
     'b10': '느린 피아노',
     'ambientHintSlow': '휴대폰에서 만드는 느리고 차분한 소리로 집중을 도와줍니다. 조용히 읽으려면 끄기를 고르세요.',
+    'webTranslateNote': 'Windows에서는 웹 브라우저의 Google 번역으로 번역합니다. 텍스트를 확인한 뒤 "번역"을 누르세요.',
+    'startTranslate': '번역',
+    'inkColor': '잉크 색',
+    'lineThickness': '선 굵기',
   },
   'fr': {
     'pickPdf': 'Choisir un fichier PDF',
@@ -1342,7 +1371,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Trait pointillé',
     'undo': 'Annuler',
     'unsavedTitle': 'Enregistrer les modifications ?',
-    'unsavedBody': 'Ce document contient des modifications non enregistrées (signatures, annotations, pages supprimées ou traduites).',
+    'unsavedBody':
+        'Ce document contient des modifications non enregistrées (signatures, annotations, pages supprimées ou traduites).',
     'saveChanges': 'Enregistrer…',
     'discardChanges': 'Ne pas enregistrer',
     'saveMenu': 'Enregistrer les modifications…',
@@ -1353,7 +1383,8 @@ const translations = <String, Map<String, String>>{
     'edgeViewTitle': 'Traduire et afficher',
     'edgeTip': 'Astuce : balayez depuis le bord gauche ou droit de l\'écran pour ouvrir les menus rapides.',
     'undoChanges': 'Annuler des modifications',
-    'undoHint': 'Touchez une étape pour l’annuler, ainsi que toutes les suivantes. Les 25 dernières étapes sont conservées.',
+    'undoHint':
+        'Touchez une étape pour l’annuler, ainsi que toutes les suivantes. Les 25 dernières étapes sont conservées.',
     'undoSteps': 'Annuler {n} étapes',
     'undoneSteps': '{n} étapes annulées',
     'undoOpened': 'À l’ouverture (aucune modification)',
@@ -1369,7 +1400,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Affichage de l’original, avant traduction',
     'backToTranslationFirst': 'Revenez à la traduction avant de modifier',
     'openGoogleTranslate': 'Ouvrir dans Google Traduction',
-    'translateNote': 'La traduction dans l’app fonctionne hors ligne et reste basique. Pour mieux traduire, ouvrez le texte dans Google Traduction (Internet requis).',
+    'translateNote':
+        'La traduction dans l’app fonctionne hors ligne et reste basique. Pour mieux traduire, ouvrez le texte dans Google Traduction (Internet requis).',
     'ocrArea': 'Extraire le texte d’un scan',
     'ocrHint': 'Tracez un cadre autour du texte à extraire',
     'ocrButton': 'Extraire',
@@ -1397,7 +1429,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Bol chantant lointain',
     'b9': 'Boîte à musique : Khang Khao Kin Kluai (air thaï ancien)',
     'b10': 'Piano lent',
-    'ambientHintSlow': 'Des sons lents et calmes créés sur votre téléphone pour vous concentrer. Choisissez Désactivé pour le silence.',
+    'ambientHintSlow':
+        'Des sons lents et calmes créés sur votre téléphone pour vous concentrer. Choisissez Désactivé pour le silence.',
+    'webTranslateNote':
+        'Sous Windows, Pagelume traduit avec Google Traduction dans votre navigateur. Vérifiez le texte, puis appuyez sur Traduire.',
+    'startTranslate': 'Traduire',
+    'inkColor': 'Couleur de l’encre',
+    'lineThickness': 'Épaisseur du trait',
   },
   'de': {
     'pickPdf': 'PDF-Datei auswählen',
@@ -1538,7 +1576,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Gestrichelte Linie',
     'undo': 'Rückgängig',
     'unsavedTitle': 'Änderungen speichern?',
-    'unsavedBody': 'Dieses Dokument hat noch nicht gespeicherte Änderungen (Unterschriften, Markierungen, gelöschte oder übersetzte Seiten).',
+    'unsavedBody':
+        'Dieses Dokument hat noch nicht gespeicherte Änderungen (Unterschriften, Markierungen, gelöschte oder übersetzte Seiten).',
     'saveChanges': 'Speichern…',
     'discardChanges': 'Nicht speichern',
     'saveMenu': 'Änderungen speichern…',
@@ -1549,7 +1588,8 @@ const translations = <String, Map<String, String>>{
     'edgeViewTitle': 'Übersetzen und Ansicht',
     'edgeTip': 'Tipp: Wischen Sie vom linken oder rechten Bildschirmrand nach innen, um Schnellmenüs zu öffnen.',
     'undoChanges': 'Änderungen rückgängig machen',
-    'undoHint': 'Tippen Sie auf einen Schritt, um ihn und alle späteren rückgängig zu machen. Die letzten 25 Schritte bleiben erhalten.',
+    'undoHint':
+        'Tippen Sie auf einen Schritt, um ihn und alle späteren rückgängig zu machen. Die letzten 25 Schritte bleiben erhalten.',
     'undoSteps': '{n} Schritte rückgängig',
     'undoneSteps': '{n} Schritte rückgängig gemacht',
     'undoOpened': 'Wie geöffnet (keine Änderungen)',
@@ -1565,7 +1605,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Original vor der Übersetzung',
     'backToTranslationFirst': 'Vor dem Bearbeiten zur Übersetzung zurückkehren',
     'openGoogleTranslate': 'In Google Übersetzer öffnen',
-    'translateNote': 'Die Übersetzung in der App funktioniert offline und ist einfach. Für eine bessere Übersetzung öffnen Sie den Text in Google Übersetzer (Internet nötig).',
+    'translateNote':
+        'Die Übersetzung in der App funktioniert offline und ist einfach. Für eine bessere Übersetzung öffnen Sie den Text in Google Übersetzer (Internet nötig).',
     'ocrArea': 'Text aus Scan holen',
     'ocrHint': 'Ziehen Sie einen Rahmen um den gewünschten Text',
     'ocrButton': 'Text holen',
@@ -1594,6 +1635,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'Spieluhr: Khang Khao Kin Kluai (alte Thai-Melodie)',
     'b10': 'Langsames Klavier',
     'ambientHintSlow': 'Langsame, ruhige Klänge, auf dem Handy erzeugt, zum Konzentrieren. Für Stille „Aus“ wählen.',
+    'webTranslateNote':
+        'Unter Windows übersetzt Pagelume mit Google Übersetzer im Webbrowser. Prüfen Sie den Text und tippen Sie auf Übersetzen.',
+    'startTranslate': 'Übersetzen',
+    'inkColor': 'Tintenfarbe',
+    'lineThickness': 'Strichstärke',
   },
   'it': {
     'pickPdf': 'Scegli un file PDF',
@@ -1745,7 +1791,8 @@ const translations = <String, Map<String, String>>{
     'edgeViewTitle': 'Traduci e visualizza',
     'edgeTip': 'Suggerimento: scorri dal bordo sinistro o destro dello schermo per aprire i menu rapidi.',
     'undoChanges': 'Annulla modifiche',
-    'undoHint': 'Tocca un passaggio per annullarlo insieme a tutti i successivi. Vengono conservati gli ultimi 25 passaggi.',
+    'undoHint':
+        'Tocca un passaggio per annullarlo insieme a tutti i successivi. Vengono conservati gli ultimi 25 passaggi.',
     'undoSteps': 'Annulla {n} passaggi',
     'undoneSteps': '{n} passaggi annullati',
     'undoOpened': 'All’apertura (nessuna modifica)',
@@ -1761,7 +1808,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Originale, prima della traduzione',
     'backToTranslationFirst': 'Torna alla traduzione prima di modificare',
     'openGoogleTranslate': 'Apri in Google Traduttore',
-    'translateNote': 'La traduzione nell’app funziona offline ed è basilare. Per una traduzione migliore apri il testo in Google Traduttore (serve Internet).',
+    'translateNote':
+        'La traduzione nell’app funziona offline ed è basilare. Per una traduzione migliore apri il testo in Google Traduttore (serve Internet).',
     'ocrArea': 'Estrai testo da scansione',
     'ocrHint': 'Trascina un riquadro sul testo da estrarre',
     'ocrButton': 'Estrai',
@@ -1790,6 +1838,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'Carillon: Khang Khao Kin Kluai (antica melodia thai)',
     'b10': 'Pianoforte lento',
     'ambientHintSlow': 'Suoni lenti e calmi creati sul telefono, per concentrarti. Scegli Off per il silenzio.',
+    'webTranslateNote':
+        'Su Windows, Pagelume traduce con Google Traduttore nel browser. Controlla il testo, poi premi Traduci.',
+    'startTranslate': 'Traduci',
+    'inkColor': 'Colore inchiostro',
+    'lineThickness': 'Spessore linea',
   },
   'es': {
     'pickPdf': 'Elegir un archivo PDF',
@@ -1957,7 +2010,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Mostrando el original, sin traducir',
     'backToTranslationFirst': 'Vuelve a la traducción antes de editar',
     'openGoogleTranslate': 'Abrir en Google Traductor',
-    'translateNote': 'La traducción de la app funciona sin conexión y es básica. Para una mejor traducción, abre el texto en Google Traductor (requiere internet).',
+    'translateNote':
+        'La traducción de la app funciona sin conexión y es básica. Para una mejor traducción, abre el texto en Google Traductor (requiere internet).',
     'ocrArea': 'Extraer texto de un escaneo',
     'ocrHint': 'Arrastra un recuadro sobre el texto que quieres extraer',
     'ocrButton': 'Extraer',
@@ -1985,7 +2039,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Cuenco tibetano lejano',
     'b9': 'Caja de música: Khang Khao Kin Kluai (melodía tailandesa antigua)',
     'b10': 'Piano lento',
-    'ambientHintSlow': 'Sonidos lentos y tranquilos creados en tu teléfono para concentrarte. Elige Apagado para silencio.',
+    'ambientHintSlow':
+        'Sonidos lentos y tranquilos creados en tu teléfono para concentrarte. Elige Apagado para silencio.',
+    'webTranslateNote':
+        'En Windows, Pagelume traduce con Google Traductor en el navegador. Revisa el texto y pulsa Traducir.',
+    'startTranslate': 'Traducir',
+    'inkColor': 'Color de tinta',
+    'lineThickness': 'Grosor de línea',
   },
   'pt': {
     'pickPdf': 'Escolher um arquivo PDF',
@@ -2126,7 +2186,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Linha tracejada',
     'undo': 'Desfazer',
     'unsavedTitle': 'Salvar as alterações?',
-    'unsavedBody': 'Este documento tem alterações ainda não salvas (assinaturas, marcações, páginas excluídas ou traduzidas).',
+    'unsavedBody':
+        'Este documento tem alterações ainda não salvas (assinaturas, marcações, páginas excluídas ou traduzidas).',
     'saveChanges': 'Salvar…',
     'discardChanges': 'Não salvar',
     'saveMenu': 'Salvar alterações…',
@@ -2153,7 +2214,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Mostrando o original, antes da tradução',
     'backToTranslationFirst': 'Volte para a tradução antes de editar',
     'openGoogleTranslate': 'Abrir no Google Tradutor',
-    'translateNote': 'A tradução no app funciona offline e é básica. Para traduzir melhor, abra o texto no Google Tradutor (precisa de internet).',
+    'translateNote':
+        'A tradução no app funciona offline e é básica. Para traduzir melhor, abra o texto no Google Tradutor (precisa de internet).',
     'ocrArea': 'Extrair texto de digitalização',
     'ocrHint': 'Arraste um quadro sobre o texto que deseja extrair',
     'ocrButton': 'Extrair',
@@ -2181,7 +2243,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Tigela tibetana distante',
     'b9': 'Caixa de música: Khang Khao Kin Kluai (melodia tailandesa antiga)',
     'b10': 'Piano lento',
-    'ambientHintSlow': 'Sons lentos e calmos criados no celular para ajudar a concentrar. Escolha Desligado para silêncio.',
+    'ambientHintSlow':
+        'Sons lentos e calmos criados no celular para ajudar a concentrar. Escolha Desligado para silêncio.',
+    'webTranslateNote':
+        'No Windows, o Pagelume traduz com o Google Tradutor no navegador. Confira o texto e toque em Traduzir.',
+    'startTranslate': 'Traduzir',
+    'inkColor': 'Cor da tinta',
+    'lineThickness': 'Espessura da linha',
   },
   'ru': {
     'pickPdf': 'Выбрать PDF-файл',
@@ -2349,7 +2417,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Показан оригинал до перевода',
     'backToTranslationFirst': 'Сначала вернитесь к переводу',
     'openGoogleTranslate': 'Открыть в Google Переводчике',
-    'translateNote': 'Перевод в приложении работает офлайн и довольно простой. Для лучшего перевода откройте текст в Google Переводчике (нужен интернет).',
+    'translateNote':
+        'Перевод в приложении работает офлайн и довольно простой. Для лучшего перевода откройте текст в Google Переводчике (нужен интернет).',
     'ocrArea': 'Текст со скана',
     'ocrHint': 'Обведите рамкой нужный текст',
     'ocrButton': 'Получить текст',
@@ -2377,7 +2446,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Далёкая поющая чаша',
     'b9': 'Музыкальная шкатулка: Кханг Кхао Кин Клуай (старинная тайская мелодия)',
     'b10': 'Медленное фортепиано',
-    'ambientHintSlow': 'Медленные спокойные звуки, созданные на телефоне, помогают сосредоточиться. Для тишины выберите «Выкл.».',
+    'ambientHintSlow':
+        'Медленные спокойные звуки, созданные на телефоне, помогают сосредоточиться. Для тишины выберите «Выкл.».',
+    'webTranslateNote':
+        'В Windows Pagelume переводит через Google Переводчик в браузере. Проверьте текст и нажмите «Перевести».',
+    'startTranslate': 'Перевести',
+    'inkColor': 'Цвет чернил',
+    'lineThickness': 'Толщина линии',
   },
   'uk': {
     'pickPdf': 'Вибрати PDF-файл',
@@ -2545,7 +2620,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Показано оригінал до перекладу',
     'backToTranslationFirst': 'Спершу поверніться до перекладу',
     'openGoogleTranslate': 'Відкрити в Google Перекладачі',
-    'translateNote': 'Переклад у застосунку працює офлайн і досить простий. Для кращого перекладу відкрийте текст у Google Перекладачі (потрібен інтернет).',
+    'translateNote':
+        'Переклад у застосунку працює офлайн і досить простий. Для кращого перекладу відкрийте текст у Google Перекладачі (потрібен інтернет).',
     'ocrArea': 'Текст зі скану',
     'ocrHint': 'Обведіть рамкою потрібний текст',
     'ocrButton': 'Отримати текст',
@@ -2573,7 +2649,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Далека співоча чаша',
     'b9': 'Музична скринька: Кханг Кхао Кін Клуай (старовинна тайська мелодія)',
     'b10': 'Повільне фортепіано',
-    'ambientHintSlow': 'Повільні спокійні звуки, створені на телефоні, допомагають зосередитися. Для тиші виберіть «Вимк.».',
+    'ambientHintSlow':
+        'Повільні спокійні звуки, створені на телефоні, допомагають зосередитися. Для тиші виберіть «Вимк.».',
+    'webTranslateNote':
+        'У Windows Pagelume перекладає через Google Перекладач у браузері. Перевірте текст і натисніть «Перекласти».',
+    'startTranslate': 'Перекласти',
+    'inkColor': 'Колір чорнила',
+    'lineThickness': 'Товщина лінії',
   },
   'pl': {
     'pickPdf': 'Wybierz plik PDF',
@@ -2741,7 +2823,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Oryginał sprzed tłumaczenia',
     'backToTranslationFirst': 'Najpierw wróć do tłumaczenia',
     'openGoogleTranslate': 'Otwórz w Tłumaczu Google',
-    'translateNote': 'Tłumaczenie w aplikacji działa offline i jest podstawowe. Aby przetłumaczyć lepiej, otwórz tekst w Tłumaczu Google (wymaga internetu).',
+    'translateNote':
+        'Tłumaczenie w aplikacji działa offline i jest podstawowe. Aby przetłumaczyć lepiej, otwórz tekst w Tłumaczu Google (wymaga internetu).',
     'ocrArea': 'Tekst ze skanu',
     'ocrHint': 'Zaznacz ramką tekst do wyciągnięcia',
     'ocrButton': 'Pobierz tekst',
@@ -2769,7 +2852,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Odległa misa tybetańska',
     'b9': 'Pozytywka: Khang Khao Kin Kluai (dawna melodia tajska)',
     'b10': 'Wolne pianino',
-    'ambientHintSlow': 'Powolne, spokojne dźwięki tworzone w telefonie pomagają się skupić. Wybierz Wył., aby była cisza.',
+    'ambientHintSlow':
+        'Powolne, spokojne dźwięki tworzone w telefonie pomagają się skupić. Wybierz Wył., aby była cisza.',
+    'webTranslateNote':
+        'W systemie Windows Pagelume tłumaczy za pomocą Tłumacza Google w przeglądarce. Sprawdź tekst i naciśnij Przetłumacz.',
+    'startTranslate': 'Przetłumacz',
+    'inkColor': 'Kolor atramentu',
+    'lineThickness': 'Grubość linii',
   },
   'nl': {
     'pickPdf': 'Kies een pdf-bestand',
@@ -2886,7 +2975,8 @@ const translations = <String, Map<String, String>>{
     'translating': 'Vertalen…',
     'pageProgress': 'Pagina {n} van {total}',
     'downloadingModel': 'Taalpakket downloaden (ongeveer 30 MB, alleen de eerste keer)…',
-    'noText': 'Hier is geen tekst gevonden. Gescande pagina\'s (afbeeldingen van tekst) kunnen nog niet worden vertaald.',
+    'noText':
+        'Hier is geen tekst gevonden. Gescande pagina\'s (afbeeldingen van tekst) kunnen nog niet worden vertaald.',
     'copyText': 'Tekst kopiëren',
     'textCopied': 'Tekst gekopieerd',
     'placeTranslation': 'Op de pagina zetten en opslaan…',
@@ -2910,7 +3000,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Stippellijn',
     'undo': 'Ongedaan maken',
     'unsavedTitle': 'Wijzigingen opslaan?',
-    'unsavedBody': 'Dit document heeft wijzigingen die nog niet zijn opgeslagen (handtekeningen, markeringen, verwijderde of vertaalde pagina\'s).',
+    'unsavedBody':
+        'Dit document heeft wijzigingen die nog niet zijn opgeslagen (handtekeningen, markeringen, verwijderde of vertaalde pagina\'s).',
     'saveChanges': 'Opslaan…',
     'discardChanges': 'Niet opslaan',
     'saveMenu': 'Wijzigingen opslaan…',
@@ -2921,7 +3012,8 @@ const translations = <String, Map<String, String>>{
     'edgeViewTitle': 'Vertalen en weergave',
     'edgeTip': 'Tip: veeg vanaf de linker- of rechterrand van het scherm voor snelmenu\'s.',
     'undoChanges': 'Wijzigingen ongedaan maken',
-    'undoHint': 'Tik op een stap om die en alle latere stappen ongedaan te maken. De laatste 25 stappen worden bewaard.',
+    'undoHint':
+        'Tik op een stap om die en alle latere stappen ongedaan te maken. De laatste 25 stappen worden bewaard.',
     'undoSteps': '{n} stappen ongedaan maken',
     'undoneSteps': '{n} stappen ongedaan gemaakt',
     'undoOpened': 'Zoals geopend (geen wijzigingen)',
@@ -2937,7 +3029,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Origineel, vóór de vertaling',
     'backToTranslationFirst': 'Ga eerst terug naar de vertaling',
     'openGoogleTranslate': 'Openen in Google Translate',
-    'translateNote': 'Vertalen in de app werkt offline en is eenvoudig. Open de tekst in Google Translate voor een betere vertaling (internet nodig).',
+    'translateNote':
+        'Vertalen in de app werkt offline en is eenvoudig. Open de tekst in Google Translate voor een betere vertaling (internet nodig).',
     'ocrArea': 'Tekst uit scan halen',
     'ocrHint': 'Sleep een kader over de tekst die u wilt halen',
     'ocrButton': 'Tekst halen',
@@ -2966,6 +3059,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'Speeldoos: Khang Khao Kin Kluai (oude Thaise melodie)',
     'b10': 'Langzame piano',
     'ambientHintSlow': 'Langzame, rustige geluiden die je telefoon maakt, om je te concentreren. Kies Uit voor stilte.',
+    'webTranslateNote':
+        'Op Windows vertaalt Pagelume met Google Translate in je webbrowser. Controleer de tekst en druk op Vertalen.',
+    'startTranslate': 'Vertalen',
+    'inkColor': 'Inktkleur',
+    'lineThickness': 'Lijndikte',
   },
   'tr': {
     'pickPdf': 'PDF dosyası seç',
@@ -3106,7 +3204,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Kesikli çizgi',
     'undo': 'Geri al',
     'unsavedTitle': 'Değişiklikler kaydedilsin mi?',
-    'unsavedBody': 'Bu belgede henüz kaydedilmemiş değişiklikler var (imzalar, işaretlemeler, silinen veya çevrilen sayfalar).',
+    'unsavedBody':
+        'Bu belgede henüz kaydedilmemiş değişiklikler var (imzalar, işaretlemeler, silinen veya çevrilen sayfalar).',
     'saveChanges': 'Kaydet…',
     'discardChanges': 'Kaydetme',
     'saveMenu': 'Değişiklikleri kaydet…',
@@ -3133,7 +3232,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Çeviriden önceki orijinal gösteriliyor',
     'backToTranslationFirst': 'Düzenlemeden önce çeviriye dönün',
     'openGoogleTranslate': 'Google Çeviri’de aç',
-    'translateNote': 'Uygulama içi çeviri çevrimdışı çalışır ve temeldir. Daha iyi çeviri için metni Google Çeviri’de açın (internet gerekir).',
+    'translateNote':
+        'Uygulama içi çeviri çevrimdışı çalışır ve temeldir. Daha iyi çeviri için metni Google Çeviri’de açın (internet gerekir).',
     'ocrArea': 'Taramadan metin al',
     'ocrHint': 'Almak istediğiniz metnin üzerine bir çerçeve çizin',
     'ocrButton': 'Metni al',
@@ -3161,7 +3261,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Uzaktan şarkı söyleyen kase',
     'b9': 'Müzik kutusu: Khang Khao Kin Kluai (eski Tay ezgisi)',
     'b10': 'Yavaş piyano',
-    'ambientHintSlow': 'Telefonunuzda üretilen yavaş, sakin sesler odaklanmanıza yardım eder. Sessizlik için Kapalı’yı seçin.',
+    'ambientHintSlow':
+        'Telefonunuzda üretilen yavaş, sakin sesler odaklanmanıza yardım eder. Sessizlik için Kapalı’yı seçin.',
+    'webTranslateNote':
+        'Windows\'ta Pagelume, web tarayıcısındaki Google Çeviri ile çevirir. Metni kontrol edip Çevir\'e basın.',
+    'startTranslate': 'Çevir',
+    'inkColor': 'Mürekkep rengi',
+    'lineThickness': 'Çizgi kalınlığı',
   },
   'ar': {
     'pickPdf': 'اختيار ملف PDF',
@@ -3329,7 +3435,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'يُعرض الأصل قبل الترجمة',
     'backToTranslationFirst': 'ارجع إلى الترجمة قبل التعديل',
     'openGoogleTranslate': 'فتح في ترجمة Google',
-    'translateNote': 'الترجمة داخل التطبيق تعمل دون اتصال وهي بسيطة. لترجمة أفضل افتح النص في ترجمة Google (يتطلب الإنترنت).',
+    'translateNote':
+        'الترجمة داخل التطبيق تعمل دون اتصال وهي بسيطة. لترجمة أفضل افتح النص في ترجمة Google (يتطلب الإنترنت).',
     'ocrArea': 'استخراج النص من مسح ضوئي',
     'ocrHint': 'اسحب إطارًا حول النص الذي تريده',
     'ocrButton': 'استخراج',
@@ -3358,6 +3465,10 @@ const translations = <String, Map<String, String>>{
     'b9': 'صندوق موسيقى: كانغ كاو كين كلواي (لحن تايلندي قديم)',
     'b10': 'بيانو هادئ',
     'ambientHintSlow': 'أصوات بطيئة هادئة تُنشأ على هاتفك لتساعدك على التركيز. اختر إيقاف للهدوء.',
+    'webTranslateNote': 'في Windows، يترجم Pagelume باستخدام ترجمة Google في متصفح الويب. راجع النص ثم اضغط ترجمة.',
+    'startTranslate': 'ترجمة',
+    'inkColor': 'لون الحبر',
+    'lineThickness': 'سُمك الخط',
   },
   'hi': {
     'pickPdf': 'PDF फ़ाइल चुनें',
@@ -3498,7 +3609,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'डैश वाली रेखा',
     'undo': 'पूर्ववत करें',
     'unsavedTitle': 'बदलाव सहेजें?',
-    'unsavedBody': 'इस दस्तावेज़ में ऐसे बदलाव हैं जो अभी सहेजे नहीं गए हैं (हस्ताक्षर, निशान, हटाए गए या अनुवादित पेज)।',
+    'unsavedBody':
+        'इस दस्तावेज़ में ऐसे बदलाव हैं जो अभी सहेजे नहीं गए हैं (हस्ताक्षर, निशान, हटाए गए या अनुवादित पेज)।',
     'saveChanges': 'सहेजें…',
     'discardChanges': 'न सहेजें',
     'saveMenu': 'बदलाव सहेजें…',
@@ -3525,7 +3637,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'अनुवाद से पहले का मूल दिख रहा है',
     'backToTranslationFirst': 'बदलाव से पहले अनुवाद पर वापस जाएँ',
     'openGoogleTranslate': 'Google अनुवाद में खोलें',
-    'translateNote': 'ऐप के अंदर अनुवाद ऑफ़लाइन चलता है और बुनियादी है। बेहतर अनुवाद के लिए टेक्स्ट को Google अनुवाद में खोलें (इंटरनेट चाहिए)।',
+    'translateNote':
+        'ऐप के अंदर अनुवाद ऑफ़लाइन चलता है और बुनियादी है। बेहतर अनुवाद के लिए टेक्स्ट को Google अनुवाद में खोलें (इंटरनेट चाहिए)।',
     'ocrArea': 'स्कैन से टेक्स्ट निकालें',
     'ocrHint': 'जो टेक्स्ट चाहिए उस पर बॉक्स खींचें',
     'ocrButton': 'टेक्स्ट निकालें',
@@ -3554,6 +3667,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'म्यूज़िक बॉक्स: खांग खाओ किन क्लुआई (पुरानी थाई धुन)',
     'b10': 'धीमा पियानो',
     'ambientHintSlow': 'फ़ोन पर बनी धीमी, शांत आवाज़ें ध्यान लगाने में मदद करती हैं। चुप्पी के लिए बंद चुनें।',
+    'webTranslateNote':
+        'Windows पर Pagelume वेब ब्राउज़र में Google Translate से अनुवाद करता है। टेक्स्ट जाँचें, फिर अनुवाद दबाएँ।',
+    'startTranslate': 'अनुवाद',
+    'inkColor': 'स्याही का रंग',
+    'lineThickness': 'रेखा की मोटाई',
   },
   'bn': {
     'pickPdf': 'PDF ফাইল বেছে নিন',
@@ -3721,7 +3839,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'অনুবাদের আগের মূল দেখানো হচ্ছে',
     'backToTranslationFirst': 'সম্পাদনার আগে অনুবাদে ফিরে যান',
     'openGoogleTranslate': 'Google অনুবাদে খুলুন',
-    'translateNote': 'অ্যাপের ভেতরের অনুবাদ অফলাইনে চলে এবং সাধারণ মানের। ভালো অনুবাদের জন্য লেখাটি Google অনুবাদে খুলুন (ইন্টারনেট লাগবে)।',
+    'translateNote':
+        'অ্যাপের ভেতরের অনুবাদ অফলাইনে চলে এবং সাধারণ মানের। ভালো অনুবাদের জন্য লেখাটি Google অনুবাদে খুলুন (ইন্টারনেট লাগবে)।',
     'ocrArea': 'স্ক্যান থেকে লেখা বের করুন',
     'ocrHint': 'যে লেখা চান তার ওপর একটি বাক্স টানুন',
     'ocrButton': 'লেখা বের করুন',
@@ -3750,6 +3869,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'মিউজিক বক্স: খাং খাও কিন ক্লুয়াই (পুরোনো থাই সুর)',
     'b10': 'ধীর পিয়ানো',
     'ambientHintSlow': 'ফোনে তৈরি ধীর, শান্ত শব্দ মনোযোগে সাহায্য করে। নীরবতার জন্য বন্ধ বেছে নিন।',
+    'webTranslateNote':
+        'Windows-এ Pagelume ওয়েব ব্রাউজারে Google Translate দিয়ে অনুবাদ করে। লেখা দেখে নিয়ে অনুবাদ চাপুন।',
+    'startTranslate': 'অনুবাদ',
+    'inkColor': 'কালির রং',
+    'lineThickness': 'রেখার পুরুত্ব',
   },
   'id': {
     'pickPdf': 'Pilih file PDF',
@@ -3890,7 +4014,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Garis putus-putus',
     'undo': 'Urungkan',
     'unsavedTitle': 'Simpan perubahan?',
-    'unsavedBody': 'Dokumen ini memiliki perubahan yang belum disimpan (tanda tangan, tanda, halaman yang dihapus atau diterjemahkan).',
+    'unsavedBody':
+        'Dokumen ini memiliki perubahan yang belum disimpan (tanda tangan, tanda, halaman yang dihapus atau diterjemahkan).',
     'saveChanges': 'Simpan…',
     'discardChanges': 'Jangan simpan',
     'saveMenu': 'Simpan perubahan…',
@@ -3901,7 +4026,8 @@ const translations = <String, Map<String, String>>{
     'edgeViewTitle': 'Terjemahkan dan tampilan',
     'edgeTip': 'Tips: geser dari tepi kiri atau kanan layar untuk membuka menu cepat.',
     'undoChanges': 'Urungkan perubahan',
-    'undoHint': 'Ketuk satu langkah untuk mengurungkannya beserta semua langkah sesudahnya. 25 langkah terakhir disimpan.',
+    'undoHint':
+        'Ketuk satu langkah untuk mengurungkannya beserta semua langkah sesudahnya. 25 langkah terakhir disimpan.',
     'undoSteps': 'Urungkan {n} langkah',
     'undoneSteps': '{n} langkah diurungkan',
     'undoOpened': 'Saat dibuka (tanpa perubahan)',
@@ -3917,7 +4043,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Menampilkan asli sebelum diterjemahkan',
     'backToTranslationFirst': 'Kembali ke terjemahan sebelum mengedit',
     'openGoogleTranslate': 'Buka di Google Terjemahan',
-    'translateNote': 'Terjemahan di aplikasi berjalan offline dan masih dasar. Untuk hasil lebih baik, buka teks di Google Terjemahan (perlu internet).',
+    'translateNote':
+        'Terjemahan di aplikasi berjalan offline dan masih dasar. Untuk hasil lebih baik, buka teks di Google Terjemahan (perlu internet).',
     'ocrArea': 'Ambil teks dari pindaian',
     'ocrHint': 'Seret kotak di atas teks yang ingin diambil',
     'ocrButton': 'Ambil teks',
@@ -3946,6 +4073,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'Kotak musik: Khang Khao Kin Kluai (lagu Thai lama)',
     'b10': 'Piano pelan',
     'ambientHintSlow': 'Suara pelan dan tenang yang dibuat di ponsel untuk membantu fokus. Pilih Mati untuk hening.',
+    'webTranslateNote':
+        'Di Windows, Pagelume menerjemahkan dengan Google Terjemahan di browser. Periksa teksnya, lalu tekan Terjemahkan.',
+    'startTranslate': 'Terjemahkan',
+    'inkColor': 'Warna tinta',
+    'lineThickness': 'Ketebalan garis',
   },
   'ms': {
     'pickPdf': 'Pilih fail PDF',
@@ -4086,7 +4218,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Garisan putus-putus',
     'undo': 'Buat asal',
     'unsavedTitle': 'Simpan perubahan?',
-    'unsavedBody': 'Dokumen ini mempunyai perubahan yang belum disimpan (tandatangan, tanda, halaman yang dipadam atau diterjemah).',
+    'unsavedBody':
+        'Dokumen ini mempunyai perubahan yang belum disimpan (tandatangan, tanda, halaman yang dipadam atau diterjemah).',
     'saveChanges': 'Simpan…',
     'discardChanges': 'Jangan simpan',
     'saveMenu': 'Simpan perubahan…',
@@ -4097,7 +4230,8 @@ const translations = <String, Map<String, String>>{
     'edgeViewTitle': 'Terjemah dan paparan',
     'edgeTip': 'Petua: leret dari tepi kiri atau kanan skrin untuk membuka menu pantas.',
     'undoChanges': 'Buat asal perubahan',
-    'undoHint': 'Ketik satu langkah untuk membuat asal langkah itu dan semua langkah selepasnya. 25 langkah terakhir disimpan.',
+    'undoHint':
+        'Ketik satu langkah untuk membuat asal langkah itu dan semua langkah selepasnya. 25 langkah terakhir disimpan.',
     'undoSteps': 'Buat asal {n} langkah',
     'undoneSteps': '{n} langkah dibuat asal',
     'undoOpened': 'Semasa dibuka (tiada perubahan)',
@@ -4113,7 +4247,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Menunjukkan asal sebelum diterjemah',
     'backToTranslationFirst': 'Kembali ke terjemahan sebelum mengedit',
     'openGoogleTranslate': 'Buka dalam Google Terjemah',
-    'translateNote': 'Terjemahan dalam aplikasi berfungsi luar talian dan masih asas. Untuk hasil lebih baik, buka teks dalam Google Terjemah (perlu internet).',
+    'translateNote':
+        'Terjemahan dalam aplikasi berfungsi luar talian dan masih asas. Untuk hasil lebih baik, buka teks dalam Google Terjemah (perlu internet).',
     'ocrArea': 'Ambil teks daripada imbasan',
     'ocrHint': 'Seret kotak di atas teks yang mahu diambil',
     'ocrButton': 'Ambil teks',
@@ -4141,7 +4276,13 @@ const translations = <String, Map<String, String>>{
     'b8': 'Mangkuk nyanyian dari jauh',
     'b9': 'Kotak muzik: Khang Khao Kin Kluai (lagu Thai lama)',
     'b10': 'Piano perlahan',
-    'ambientHintSlow': 'Bunyi perlahan dan tenang yang dijana di telefon untuk membantu fokus. Pilih Mati untuk senyap.',
+    'ambientHintSlow':
+        'Bunyi perlahan dan tenang yang dijana di telefon untuk membantu fokus. Pilih Mati untuk senyap.',
+    'webTranslateNote':
+        'Di Windows, Pagelume menterjemah dengan Google Terjemah dalam pelayar web. Semak teks, kemudian tekan Terjemah.',
+    'startTranslate': 'Terjemah',
+    'inkColor': 'Warna dakwat',
+    'lineThickness': 'Ketebalan garisan',
   },
   'vi': {
     'pickPdf': 'Chọn tệp PDF',
@@ -4309,7 +4450,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Đang hiện bản gốc trước khi dịch',
     'backToTranslationFirst': 'Hãy quay lại bản dịch trước khi chỉnh sửa',
     'openGoogleTranslate': 'Mở trong Google Dịch',
-    'translateNote': 'Bản dịch trong ứng dụng chạy ngoại tuyến và còn cơ bản. Để dịch tốt hơn, hãy mở văn bản trong Google Dịch (cần internet).',
+    'translateNote':
+        'Bản dịch trong ứng dụng chạy ngoại tuyến và còn cơ bản. Để dịch tốt hơn, hãy mở văn bản trong Google Dịch (cần internet).',
     'ocrArea': 'Lấy chữ từ bản quét',
     'ocrHint': 'Kéo khung quanh phần chữ cần lấy',
     'ocrButton': 'Lấy chữ',
@@ -4338,6 +4480,11 @@ const translations = <String, Map<String, String>>{
     'b9': 'Hộp nhạc: Khang Khao Kin Kluai (giai điệu Thái xưa)',
     'b10': 'Piano chậm',
     'ambientHintSlow': 'Âm thanh chậm, êm được tạo trên điện thoại giúp bạn tập trung. Chọn Tắt để yên tĩnh.',
+    'webTranslateNote':
+        'Trên Windows, Pagelume dịch bằng Google Dịch trong trình duyệt. Kiểm tra văn bản rồi nhấn Dịch.',
+    'startTranslate': 'Dịch',
+    'inkColor': 'Màu mực',
+    'lineThickness': 'Độ dày nét',
   },
   'fil': {
     'pickPdf': 'Pumili ng PDF file',
@@ -4478,7 +4625,8 @@ const translations = <String, Map<String, String>>{
     'lineDashed': 'Putol-putol na linya',
     'undo': 'I-undo',
     'unsavedTitle': 'I-save ang mga pagbabago?',
-    'unsavedBody': 'May mga pagbabago sa dokumentong ito na hindi pa nase-save (mga pirma, marka, binura o isinaling pahina).',
+    'unsavedBody':
+        'May mga pagbabago sa dokumentong ito na hindi pa nase-save (mga pirma, marka, binura o isinaling pahina).',
     'saveChanges': 'I-save…',
     'discardChanges': 'Huwag i-save',
     'saveMenu': 'I-save ang mga pagbabago…',
@@ -4505,7 +4653,8 @@ const translations = <String, Map<String, String>>{
     'viewingOriginal': 'Ipinapakita ang orihinal bago isalin',
     'backToTranslationFirst': 'Bumalik muna sa salin bago mag-edit',
     'openGoogleTranslate': 'Buksan sa Google Translate',
-    'translateNote': 'Offline at simple lang ang salin sa loob ng app. Para sa mas magandang salin, buksan ang teksto sa Google Translate (kailangan ng internet).',
+    'translateNote':
+        'Offline at simple lang ang salin sa loob ng app. Para sa mas magandang salin, buksan ang teksto sa Google Translate (kailangan ng internet).',
     'ocrArea': 'Kunin ang teksto mula sa scan',
     'ocrHint': 'Mag-drag ng kahon sa tekstong gusto mong kunin',
     'ocrButton': 'Kunin ang teksto',
@@ -4533,6 +4682,12 @@ const translations = <String, Map<String, String>>{
     'b8': 'Malayong singing bowl',
     'b9': 'Music box: Khang Khao Kin Kluai (lumang himig Thai)',
     'b10': 'Mabagal na piano',
-    'ambientHintSlow': 'Mabagal at payapang tunog na ginawa sa telepono para makapag-focus. Piliin ang Off para tahimik.',
+    'ambientHintSlow':
+        'Mabagal at payapang tunog na ginawa sa telepono para makapag-focus. Piliin ang Off para tahimik.',
+    'webTranslateNote':
+        'Sa Windows, nagsasalin ang Pagelume gamit ang Google Translate sa web browser. Suriin ang teksto, saka pindutin ang Isalin.',
+    'startTranslate': 'Isalin',
+    'inkColor': 'Kulay ng tinta',
+    'lineThickness': 'Kapal ng linya',
   },
 };

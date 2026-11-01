@@ -57,6 +57,10 @@ class S {
   String get backToFiles => _f('backToFiles');
   String get singlePage => _f('singlePage');
   String get twoPage => _f('twoPage');
+  String get webTranslateNote => _f('webTranslateNote');
+  String get startTranslate => _f('startTranslate');
+  String get inkColor => _f('inkColor');
+  String get lineThickness => _f('lineThickness');
   String get goToPageMenu => _f('goToPageMenu');
   String get coverAlone => _f('coverAlone');
   String get rtlPages => _f('rtlPages');

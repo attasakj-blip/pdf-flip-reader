@@ -141,6 +141,59 @@ Future<bool> showTranslation(
   return put == true;
 }
 
+/// Windows version: there is no translator on the computer, so show the
+/// text with a clear button that opens Google Translate in the web browser
+/// with the text already filled in.
+Future<void> showWebTranslation(BuildContext context, String text, String to) {
+  final s = S.of(context);
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('${s.translationTitle} → ${languageNames[to] ?? to}'),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(s.webTranslateNote, style: const TextStyle(fontSize: 13, color: Colors.amberAccent)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white24),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(text, style: const TextStyle(fontSize: 15)),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          icon: const Icon(Icons.copy, size: 18),
+          label: Text(s.copyText),
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: text));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.textCopied)));
+          },
+        ),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s.close)),
+        FilledButton.icon(
+          icon: const Icon(Icons.g_translate, size: 18),
+          label: Text(s.startTranslate),
+          onPressed: () {
+            Navigator.pop(ctx);
+            openGoogleTranslate(context, text, to);
+          },
+        ),
+      ],
+    ),
+  );
+}
+
 /// Opens [text] in Google Translate (app or website).
 Future<void> openGoogleTranslate(BuildContext context, String text, String to) async {
   try {

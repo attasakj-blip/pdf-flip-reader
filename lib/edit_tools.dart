@@ -95,22 +95,60 @@ class Signature {
   }
 }
 
-/// Full-screen pad to draw a signature with a finger.
-Future<Signature?> showSignaturePad(BuildContext context) =>
-    Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const _SignaturePad()));
+/// Full-screen pad to draw a signature with a finger (or a mouse). The ink
+/// colour and line width start at [color] and [width]; [onStyle] is told
+/// when the user changes them, so they can be remembered.
+Future<Signature?> showSignaturePad(
+  BuildContext context, {
+  Color color = const Color(0xFF111111),
+  double width = 3.5,
+  void Function(Color color, double width)? onStyle,
+}) => Navigator.of(context).push(
+  MaterialPageRoute(
+    fullscreenDialog: true,
+    builder: (_) => _SignaturePad(color: color, width: width, onStyle: onStyle),
+  ),
+);
+
+/// Ink colours offered for signatures.
+const signInks = [
+  Color(0xFF111111), // black
+  Color(0xFF1A3FA8), // blue
+  Color(0xFF0B1F5C), // navy
+  Color(0xFF2E7DD7), // light blue
+  Color(0xFFB0121B), // red
+  Color(0xFF1B7A3A), // green
+  Color(0xFF6A1B9A), // purple
+  Color(0xFF6D4C41), // brown
+  Color(0xFFB8860B), // gold
+  Color(0xFF616161), // grey
+];
+
+/// Line widths offered, thinnest to thickest.
+const signWidths = [1.5, 2.5, 3.5, 5.0, 7.0, 10.0];
 
 class _SignaturePad extends StatefulWidget {
-  const _SignaturePad();
+  const _SignaturePad({required this.color, required this.width, this.onStyle});
+  final Color color;
+  final double width;
+  final void Function(Color color, double width)? onStyle;
 
   @override
   State<_SignaturePad> createState() => _SignaturePadState();
 }
 
 class _SignaturePadState extends State<_SignaturePad> {
-  static const _inks = [Color(0xFF111111), Color(0xFF1A3FA8), Color(0xFFB0121B)];
   final _strokes = <List<Offset>>[];
-  Color _ink = _inks[0];
-  static const _width = 3.5;
+  late Color _ink = widget.color;
+  late double _width = widget.width;
+
+  void _style({Color? ink, double? width}) {
+    setState(() {
+      _ink = ink ?? _ink;
+      _width = width ?? _width;
+    });
+    widget.onStyle?.call(_ink, _width);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,14 +157,6 @@ class _SignaturePadState extends State<_SignaturePad> {
       appBar: AppBar(
         title: Text(s.signPadTitle),
         actions: [
-          for (final c in _inks)
-            IconButton(
-              icon: Icon(
-                c == _ink ? Icons.radio_button_checked : Icons.circle,
-                color: c == _inks[0] ? Colors.white : c,
-              ),
-              onPressed: () => setState(() => _ink = c),
-            ),
           TextButton(onPressed: _strokes.isEmpty ? null : () => setState(_strokes.clear), child: Text(s.clear)),
           FilledButton(
             onPressed: _strokes.isEmpty
@@ -137,23 +167,141 @@ class _SignaturePadState extends State<_SignaturePad> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: ColoredBox(
-            color: Colors.white,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanStart: (d) => setState(() => _strokes.add([d.localPosition])),
-              onPanUpdate: (d) => setState(() => _strokes.last.add(d.localPosition)),
-              child: CustomPaint(painter: _PadPainter(_strokes, _ink, _width), child: const SizedBox.expand()),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: (d) => setState(() => _strokes.add([d.localPosition])),
+                    onPanUpdate: (d) => setState(() => _strokes.last.add(d.localPosition)),
+                    child: CustomPaint(painter: _PadPainter(_strokes, _ink, _width), child: const SizedBox.expand()),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _Labeled(
+                    label: s.inkColor,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final c in signInks)
+                          _Swatch(
+                            color: c,
+                            selected: c.toARGB32() == _ink.toARGB32(),
+                            onTap: () => _style(ink: c),
+                          ),
+                      ],
+                    ),
+                  ),
+                  _Labeled(
+                    label: s.lineThickness,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final w in signWidths)
+                          _WidthChip(
+                            width: w,
+                            color: _ink,
+                            selected: w == _width,
+                            onTap: () => _style(width: w),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _Labeled extends StatelessWidget {
+  const _Labeled({required this.label, required this.child});
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(label, style: const TextStyle(color: Colors.white70)),
+      const SizedBox(width: 10),
+      Flexible(child: child),
+    ],
+  );
+}
+
+class _Swatch extends StatelessWidget {
+  const _Swatch({required this.color, required this.selected, required this.onTap});
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    customBorder: const CircleBorder(),
+    onTap: onTap,
+    child: Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: selected ? Colors.amberAccent : Colors.white54, width: selected ? 3 : 1.5),
+      ),
+      child: selected ? const Icon(Icons.check, size: 18, color: Colors.white) : null,
+    ),
+  );
+}
+
+class _WidthChip extends StatelessWidget {
+  const _WidthChip({required this.width, required this.color, required this.selected, required this.onTap});
+  final double width;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(8),
+    onTap: onTap,
+    child: Container(
+      width: 44,
+      height: 32,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: selected ? Colors.amberAccent : Colors.white54, width: selected ? 3 : 1),
+      ),
+      child: Container(
+        width: 28,
+        height: width,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(width / 2)),
+      ),
+    ),
+  );
 }
 
 class _PadPainter extends CustomPainter {
