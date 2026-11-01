@@ -1495,8 +1495,9 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   Widget _topBar() => AnimatedPositioned(
     duration: const Duration(milliseconds: 200),
     top: _controlsVisible ? 0 : -120,
-    left: 0,
-    right: 0,
+    // On Windows the bar sits between the icon rails, so neither hides the other.
+    left: _rails ? _railWidth : 0,
+    right: _rails ? _railWidth : 0,
     child: Material(
       color: Colors.black.withValues(alpha: 0.6),
       child: SafeArea(
@@ -1703,8 +1704,9 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   Widget _bottomBar() => AnimatedPositioned(
     duration: const Duration(milliseconds: 200),
     bottom: _controlsVisible ? 0 : -120,
-    left: 0,
-    right: 0,
+    // On Windows the bar sits between the icon rails, so neither hides the other.
+    left: _rails ? _railWidth : 0,
+    right: _rails ? _railWidth : 0,
     // The slider and arrows follow the page-turn direction, not the menu
     // language.
     child: Directionality(
