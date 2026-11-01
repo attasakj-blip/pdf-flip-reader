@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'ads.dart';
@@ -9,6 +11,7 @@ import 'settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _addLicenses();
   final settings = await Settings.load();
   runApp(PdfFlipReaderApp(settings: settings, sounds: FlipSounds(settings)));
   initAds();
@@ -49,4 +52,23 @@ class PdfFlipReaderApp extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Licences that Flutter does not collect by itself: the bundled Sarabun
+/// font and, on Windows, the bundled Tesseract OCR program. Package
+/// licences are listed automatically on the licences page.
+void _addLicenses() {
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(['Sarabun font'], await rootBundle.loadString('assets/fonts/OFL.txt'));
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      yield const LicenseEntryWithLineBreaks(
+        ['Tesseract OCR'],
+        '''
+Tesseract OCR (https://github.com/tesseract-ocr/tesseract), included as tesseract.exe.
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+The full licence text is in tesseract\\LICENSE.txt next to Pagelume.exe.''',
+      );
+    }
+  });
 }

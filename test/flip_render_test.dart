@@ -85,6 +85,33 @@ void main() {
         const Size(420, 640),
         'single_flip_top',
       );
+
+      // Every style, part way through a turn, in both layouts.
+      for (final style in FlipStyle.values) {
+        for (final t in [0.3, 0.7]) {
+          for (final twoPage in [true, false]) {
+            final l = twoPage ? two : one;
+            final p = Offset.lerp(l.corner(true), l.turnedCorner(true), t)!;
+            final painter = BookPainter(
+              cache: pages,
+              layout: l,
+              spread: twoPage ? from : const Spread(null, 1),
+              style: style,
+              flip: FlipState(
+                from: twoPage ? from : const Spread(null, 1),
+                to: twoPage ? to : const Spread(null, 2),
+                corner: p,
+                bottom: true,
+              ),
+            );
+            await save(
+              painter,
+              twoPage ? size : const Size(420, 640),
+              'style_${style.name}_${twoPage ? 'two' : 'one'}_${(t * 100).round()}',
+            );
+          }
+        }
+      }
     });
   });
 }

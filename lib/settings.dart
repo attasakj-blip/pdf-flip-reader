@@ -101,6 +101,10 @@ class Settings extends ChangeNotifier {
   double get signWidth => (_prefs.getDouble('signWidth') ?? 3.5).clamp(1.0, 12.0);
   set signWidth(double v) => _set(() => _prefs.setDouble('signWidth', v));
 
+  /// Which page-turn look to use (index into FlipStyle).
+  int get flipStyle => (_prefs.getInt('flipStyle') ?? 0).clamp(0, 7);
+  set flipStyle(int v) => _set(() => _prefs.setInt('flipStyle', v));
+
   bool get flipAnimation => _prefs.getBool('flipAnimation') ?? true;
   set flipAnimation(bool v) => _set(() => _prefs.setBool('flipAnimation', v));
 

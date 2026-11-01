@@ -286,6 +286,7 @@ from translations_unsaved import UNSAVED  # noqa: E402
 from translations_edge import EDGE  # noqa: E402
 from translations_feedback import FEEDBACK  # noqa: E402
 from translations_desktop import DESKTOP  # noqa: E402
+from translations_flip import FLIP  # noqa: E402
 
 ADDED.update(FEATURES)
 ADDED.update(TRANSLATE)
@@ -294,6 +295,7 @@ ADDED.update(UNSAVED)
 ADDED.update(EDGE)
 ADDED.update(FEEDBACK)
 ADDED.update(DESKTOP)
+ADDED.update(FLIP)
 for _key, _vals in ADDED.items():
     KEYS.append(_key)
     for _code, (_, _list) in LANGS.items():

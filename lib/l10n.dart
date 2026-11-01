@@ -171,6 +171,16 @@ class S {
   String stepTranslateArea(String n, String lang) => _f('stepTranslateArea', {'n': n, 'lang': lang});
   String get flipEffect => _f('flipEffect');
   String get flipEffectHint => _f('flipEffectHint');
+  String get flipNone => _f('flipNone');
+  String get flipCurl => _f('flipCurl');
+  String get flipFold => _f('flipFold');
+  String get flipSlide => _f('flipSlide');
+  String get flipFade => _f('flipFade');
+  String get flipHinge => _f('flipHinge');
+  String get flipCover => _f('flipCover');
+  String get flipUncover => _f('flipUncover');
+  String get flipZoom => _f('flipZoom');
+  String get licenses => _f('licenses');
   String get showOriginal => _f('showOriginal');
   String get showTranslated => _f('showTranslated');
   String get viewingOriginal => _f('viewingOriginal');

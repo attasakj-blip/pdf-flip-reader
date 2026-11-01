@@ -487,7 +487,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   icon: Icons.auto_stories_outlined,
                   label: s.flipEffect,
                   on: _settings.flipAnimation,
-                  onTap: () => setState(() => _settings.flipAnimation = !_settings.flipAnimation),
+                  onTap: _fromEdge(_chooseFlipStyle),
                 ),
                 EdgeMenuItem(
                   icon: Icons.auto_stories,
@@ -615,6 +615,41 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     setState(() => _index += forward ? 1 : -1);
     _prefetch();
     _saveProgress();
+  }
+
+  /// Lets the reader pick how pages turn, or turn the animation off.
+  Future<void> _chooseFlipStyle() async {
+    final s = S.of(context);
+    final names = [
+      s.flipCurl,
+      s.flipFold,
+      s.flipSlide,
+      s.flipFade,
+      s.flipHinge,
+      s.flipCover,
+      s.flipUncover,
+      s.flipZoom,
+    ];
+    final current = _settings.flipAnimation ? _settings.flipStyle : -1;
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(s.flipEffect),
+        children: [
+          for (var i = -1; i < names.length; i++)
+            ListTile(
+              leading: Icon(i == current ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+              title: Text(i < 0 ? s.flipNone : names[i]),
+              onTap: () => Navigator.pop(ctx, i),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _settings.flipAnimation = picked >= 0;
+      if (picked >= 0) _settings.flipStyle = picked;
+    });
   }
 
   /// Animated turn for buttons, keyboard and presentation clickers.
@@ -1434,6 +1469,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 layout: layout,
                 spread: _spreads.isEmpty ? const Spread(null, null) : _spreads[_index],
                 flip: _flip,
+                style: FlipStyle.values[_settings.flipStyle],
               ),
             ),
           ),
@@ -1509,7 +1545,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
                 if (v == 'undoList') _showUndoList();
                 if (v == 'original') _toggleOriginal();
-                if (v == 'flip') setState(() => _settings.flipAnimation = !_settings.flipAnimation);
+                if (v == 'flip') _chooseFlipStyle();
+                if (v == 'licenses') showLicensePage(context: context, applicationName: 'Pagelume');
                 if (v == 'delete') _askDelete();
                 if (v == 'translateArea' && _idle) setState(() => _tool = _Tool.translate);
                 if (v == 'translateDoc') _translateDoc();
@@ -1552,11 +1589,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   child: Text(S.of(context).coverAlone),
                 ),
                 CheckedPopupMenuItem(value: 'rtl', checked: _rtl, child: Text(S.of(context).rtlPages)),
-                CheckedPopupMenuItem(
-                  value: 'flip',
-                  checked: _settings.flipAnimation,
-                  child: Text(S.of(context).flipEffect),
-                ),
+                PopupMenuItem(value: 'flip', child: Text('${S.of(context).flipEffect}…')),
                 CheckedPopupMenuItem(
                   value: 'night',
                   checked: _settings.nightMode,
@@ -1574,6 +1607,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 PopupMenuItem(value: 'sound', child: Text('${S.of(context).flipSoundMenu}…')),
                 PopupMenuItem(value: 'ambient', child: Text('${S.of(context).ambientMenu}…')),
                 PopupMenuItem(value: 'lang', child: Text('${S.of(context).language}…')),
+                PopupMenuItem(value: 'licenses', child: Text(S.of(context).licenses)),
                 const PopupMenuDivider(),
                 PopupMenuItem(value: 'files', child: Text(S.of(context).otherFile)),
                 PopupMenuItem(value: 'exit', child: Text(S.of(context).exitApp)),

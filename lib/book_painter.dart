@@ -88,10 +88,46 @@ class FlipState {
   final bool bottom;
 }
 
+/// How a page turn looks. The finger (or animation) always moves a corner
+/// across the book; every style reads its progress from that corner.
+enum FlipStyle {
+  /// The lifted corner curls over (the original look).
+  curl,
+
+  /// The page folds over along a straight vertical line.
+  fold,
+
+  /// Old pages slide out to the left, new ones follow.
+  slide,
+
+  /// Old pages fade out while new ones fade in.
+  fade,
+
+  /// The page swings around the spine like a book cover (3D).
+  hinge,
+
+  /// New pages slide in over the old ones.
+  cover,
+
+  /// Old pages lift slightly and slide away, uncovering the new ones.
+  uncover,
+
+  /// Old pages shrink and fade; new ones settle in from slightly larger.
+  zoom,
+}
+
 class BookPainter extends CustomPainter {
-  BookPainter({required this.cache, required this.layout, required this.spread, required this.flip, this.night = false})
-    : paper = night ? nightPaper : dayPaper,
-      super(repaint: cache);
+  BookPainter({
+    required this.cache,
+    required this.layout,
+    required this.spread,
+    required this.flip,
+    this.night = false,
+    this.style = FlipStyle.curl,
+  }) : paper = night ? nightPaper : dayPaper,
+       super(repaint: cache);
+
+  final FlipStyle style;
 
   final PageImageSource cache;
   final BookLayout layout;
@@ -139,10 +175,28 @@ class BookPainter extends CustomPainter {
     _paintFlip(canvas, f);
   }
 
+  /// How far the turn has got, 0 (old pages) to 1 (new pages).
+  double _progress(FlipState f) =>
+      ((layout.corner(f.bottom).dx - f.corner.dx) / (2 * layout.pageWidth)).clamp(0.0, 1.0);
+
   void _paintFlip(Canvas canvas, FlipState f) {
     final r = layout.right;
-    final c0 = layout.corner(f.bottom);
-    final p = f.corner;
+    var c0 = layout.corner(f.bottom);
+    var p = f.corner;
+    switch (style) {
+      case FlipStyle.curl:
+        break;
+      case FlipStyle.fold:
+        // The same fold, with the corner held level so the fold line stays upright.
+        c0 = Offset(r.right, r.center.dy);
+        p = Offset(c0.dx - 2 * layout.pageWidth * _progress(f), r.center.dy);
+      case FlipStyle.hinge:
+        _paintHinge(canvas, f, _progress(f));
+        return;
+      default:
+        _paintWhole(canvas, f, _progress(f));
+        return;
+    }
 
     _bookShadow(canvas, Spread(f.from.left ?? f.to.left, f.to.right ?? f.from.right));
     _page(canvas, layout.left, f.from.left);
@@ -259,6 +313,148 @@ class BookPainter extends CustomPainter {
         ..strokeWidth = 0.6
         ..color = Colors.black.withValues(alpha: 0.15),
     );
+  }
+
+  /// The area a spread covers on screen.
+  Rect? _area(Spread s) {
+    Rect? a;
+    if (s.left != null && layout.twoPage) a = layout.left;
+    if (s.right != null) a = a == null ? layout.right : a.expandToInclude(layout.right);
+    return a;
+  }
+
+  /// Draws a spread with its pages moved by [dx] and scaled by [scale]
+  /// about the centre of the book.
+  void _spreadAt(Canvas canvas, Spread s, {double dx = 0, double scale = 1, double opacity = 1}) {
+    if (opacity <= 0) return;
+    final c = (_area(s) ?? layout.right).center;
+    canvas.save();
+    if (opacity < 1) canvas.saveLayer(null, Paint()..color = Colors.white.withValues(alpha: opacity));
+    canvas.translate(c.dx + dx, c.dy);
+    canvas.scale(scale);
+    canvas.translate(-c.dx, -c.dy);
+    if (layout.twoPage) _page(canvas, layout.left, s.left);
+    _page(canvas, layout.right, s.right);
+    _spineShadow(canvas, 1);
+    if (opacity < 1) canvas.restore();
+    canvas.restore();
+  }
+
+  void _shade(Canvas canvas, Rect rect, double alpha) {
+    if (alpha <= 0) return;
+    canvas.drawRect(rect, Paint()..color = Colors.black.withValues(alpha: alpha));
+  }
+
+  /// Styles that move whole spreads: slide, fade, cover, uncover, zoom.
+  /// [t] runs from 0 (old spread) to 1 (new spread).
+  void _paintWhole(Canvas canvas, FlipState f, double t) {
+    final a = f.from, b = f.to;
+    final area = (_area(a) ?? layout.right).expandToInclude(_area(b) ?? layout.right);
+    final w = area.width;
+    final e = t * t * (3 - 2 * t); // gentle start and stop
+    canvas.drawRect(
+      area.shift(const Offset(0, 3)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.save();
+    canvas.clipRect(area);
+    canvas.drawRect(area, Paint()..color = paper);
+    switch (style) {
+      case FlipStyle.slide:
+        _spreadAt(canvas, a, dx: -w * t);
+        _spreadAt(canvas, b, dx: w * (1 - t));
+        final x = area.left + w * (1 - t);
+        canvas.drawRect(
+          Rect.fromLTRB(x - 14, area.top, x, area.bottom),
+          Paint()
+            ..shader = ui.Gradient.linear(Offset(x - 14, 0), Offset(x, 0), [
+              Colors.black.withValues(alpha: 0),
+              Colors.black.withValues(alpha: 0.12),
+            ]),
+        );
+      case FlipStyle.fade:
+        _spreadAt(canvas, a);
+        _spreadAt(canvas, b, opacity: e);
+      case FlipStyle.cover:
+        _spreadAt(canvas, a);
+        _shade(canvas, area, 0.18 * t);
+        final dx = (w + 30) * (1 - t);
+        _edgeShadow(canvas, area.shift(Offset(dx, 0)), const Offset(-6, 0));
+        _spreadAt(canvas, b, dx: dx);
+      case FlipStyle.uncover:
+        _spreadAt(canvas, b);
+        _shade(canvas, area, 0.18 * (1 - t));
+        final lift = 1 + 0.02 * math.sin(math.pi * math.min(1.0, t * 1.6));
+        final dx = -(w + 60) * t;
+        final moved = Rect.fromCenter(center: area.center + Offset(dx, 0), width: w * lift, height: area.height * lift);
+        _edgeShadow(canvas, moved, const Offset(8, 6));
+        _spreadAt(canvas, a, dx: dx, scale: lift);
+      default: // zoom
+        _spreadAt(canvas, a, scale: 1 - 0.05 * e, opacity: 1 - e);
+        _spreadAt(canvas, b, scale: 1.04 - 0.04 * e, opacity: e);
+    }
+    canvas.restore();
+  }
+
+  void _edgeShadow(Canvas canvas, Rect rect, Offset offset) {
+    canvas.drawRect(
+      rect.shift(offset),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+    );
+  }
+
+  /// The right page swings around the spine like a cover, drawn with a
+  /// gentle 3D perspective.
+  void _paintHinge(Canvas canvas, FlipState f, double t) {
+    final r = layout.right;
+    final w = layout.pageWidth;
+    final x0 = layout.spineX;
+    final ang = math.pi * t * t * (3 - 2 * t);
+    final c = math.cos(ang), sn = math.sin(ang);
+
+    _bookShadow(canvas, Spread(f.from.left ?? f.to.left, f.to.right ?? f.from.right));
+    _page(canvas, layout.left, f.from.left);
+    _page(canvas, r, f.to.right);
+    _shade(canvas, r, 0.3 * sn);
+    _spineShadow(canvas, 1);
+    if (c.abs() < 0.01) return; // edge on: nothing to see
+
+    final m = Matrix4.identity()
+      ..translateByDouble(x0, r.center.dy, 0, 1)
+      ..multiply(Matrix4.identity()..setEntry(3, 2, -1 / (3.5 * w)))
+      ..rotateY(-ang)
+      ..translateByDouble(-x0, -r.center.dy, 0, 1);
+    canvas.save();
+    canvas.transform(m.storage);
+    if (c > 0) {
+      _page(canvas, r, f.from.right);
+    } else {
+      canvas.drawRect(r, Paint()..color = paper);
+      if (layout.twoPage && f.to.left != null) {
+        // Mirror it here so it reads the right way once swung past the spine.
+        canvas.translate(r.left + r.right, 0);
+        canvas.scale(-1, 1);
+        _page(canvas, r, f.to.left);
+      }
+    }
+    canvas.restore();
+    canvas.save();
+    canvas.transform(m.storage);
+    // Light falls off as the page turns away; darker towards the free edge.
+    final dark = c > 0 ? 0.28 * sn : 0.2 * sn + 0.04;
+    canvas.drawRect(
+      r,
+      Paint()
+        ..shader = ui.Gradient.linear(r.centerLeft, r.centerRight, [
+          Colors.black.withValues(alpha: c > 0 ? dark * 0.2 : dark),
+          Colors.black.withValues(alpha: c > 0 ? dark : dark * 0.3),
+        ]),
+    );
+    canvas.restore();
   }
 
   void _page(Canvas canvas, Rect rect, int? index, {ui.Image? image}) {
@@ -385,6 +581,7 @@ class BookPainter extends CustomPainter {
       old.layout.right != layout.right ||
       old.layout.twoPage != layout.twoPage ||
       old.night != night ||
+      old.style != style ||
       !identical(old.cache, cache);
 }
 
