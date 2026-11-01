@@ -93,6 +93,9 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   bool _controlsVisible = true;
   _Tool _tool = _Tool.none;
   final _marks = <Mark>[];
+  // Page shapes (height / width) of pages marked earlier, for saving marks
+  // made on pages that have since been scrolled away from.
+  final _markAspects = <int, double>{};
   Signature? _signature;
   Size _bookSize = Size.zero;
 
@@ -474,6 +477,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         onTap: _fromEdge(_chooseFlipStyle),
       ),
       EdgeMenuItem(
+        icon: Icons.menu_book,
+        label: s.twoPage,
+        on: _twoPage,
+        onTap: () => _setMode(twoPage: !_twoPage),
+      ),
+      EdgeMenuItem(
         icon: Icons.auto_stories,
         label: s.coverAlone,
         on: _coverAlone,
@@ -685,14 +694,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
 
   /// Mouse wheel (Windows): one page per notch, unless zoomed in.
   void _onWheel(PointerSignalEvent e) {
-    if (e is! PointerScrollEvent || _zoom != 1 || _tool != _Tool.none || !_idle) return;
+    if (e is! PointerScrollEvent || !_idle) return;
+    // Signing and marking up can go on across pages: the wheel moves to
+    // another page while the tool stays out.
+    final annotating = _tool == _Tool.sign || _tool == _Tool.markup;
+    if (_tool != _Tool.none && !annotating) return;
+    if (_zoom != 1 && !annotating) return;
     if (HardwareKeyboard.instance.isControlPressed) return;
     final dy = e.scrollDelta.dy;
     if (dy.abs() < 1) return;
     final now = DateTime.now();
     if (now.difference(_lastWheel) < const Duration(milliseconds: 300)) return;
     _lastWheel = now;
-    _turn(dy > 0);
+    if (!annotating) {
+      _turn(dy > 0);
+      return;
+    }
+    // No page-turn animation here: the marks drawn so far stay on their pages.
+    for (final sl in _slots) {
+      _markAspects[sl.page] = sl.rect.height / sl.rect.width;
+    }
+    if (_zoom != 1) _resetZoom();
+    _jump(dy > 0);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
@@ -755,7 +778,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _saveMarks() async {
-    final aspects = {for (final s in _slots) s.page: s.rect.height / s.rect.width};
+    final aspects = {..._markAspects, for (final s in _slots) s.page: s.rect.height / s.rect.width};
+    _markAspects.clear();
     final marks = List<Mark>.of(_marks);
     setState(() {
       _tool = _Tool.none;
@@ -1370,71 +1394,73 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         focusNode: _focus,
         autofocus: true,
         onKeyEvent: _onKey,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              left: _rails ? _railWidth : 0,
-              right: _rails ? _railWidth : 0,
-              child: cache == null
-                  ? const SizedBox.shrink()
-                  : Listener(onPointerSignal: _onWheel, child: _bookView(cache)),
-            ),
-            if (cache != null && _tool == _Tool.none) _topBar(),
-            if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
-            if (cache != null && _spreads.length > 2 && _tool == _Tool.none) _scroller(),
-            if (_tool == _Tool.sign && _signature != null)
+        // Wraps everything so the wheel also works while a tool is out.
+        child: Listener(
+          onPointerSignal: _onWheel,
+          child: Stack(
+            children: [
               Positioned.fill(
-                child: PlaceSignature(
-                  signature: _signature!,
-                  slots: _zoomedSlots,
-                  onDone: _placeSignature,
-                  onCancel: () => setState(() => _tool = _Tool.none),
+                left: _rails ? _railWidth : 0,
+                right: _rails ? _railWidth : 0,
+                child: cache == null ? const SizedBox.shrink() : _bookView(cache),
+              ),
+              if (cache != null && _tool == _Tool.none) _topBar(),
+              if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
+              if (cache != null && _spreads.length > 2 && _tool == _Tool.none) _scroller(),
+              if (_tool == _Tool.sign && _signature != null)
+                Positioned.fill(
+                  child: PlaceSignature(
+                    signature: _signature!,
+                    slots: _zoomedSlots,
+                    onDone: _placeSignature,
+                    onCancel: () => setState(() => _tool = _Tool.none),
+                  ),
                 ),
-              ),
-            if (_tool == _Tool.markup)
-              Positioned.fill(
-                child: MarkupLayer(
-                  slots: _zoomedSlots,
-                  marks: _marks,
-                  pageChars: (page) => PdfEditor.pageChars(_path, page),
-                  zoom: _zoom,
-                  pan: _screenPan,
-                  onZoom: _setScreenZoom,
-                  onDone: _saveMarks,
-                  onCancel: () => setState(() {
-                    _tool = _Tool.none;
-                    _marks.clear();
-                  }),
+              if (_tool == _Tool.markup)
+                Positioned.fill(
+                  child: MarkupLayer(
+                    slots: _zoomedSlots,
+                    marks: _marks,
+                    pageChars: (page) => PdfEditor.pageChars(_path, page),
+                    zoom: _zoom,
+                    pan: _screenPan,
+                    onZoom: _setScreenZoom,
+                    onDone: _saveMarks,
+                    onCancel: () => setState(() {
+                      _tool = _Tool.none;
+                      _marks.clear();
+                    }),
+                  ),
                 ),
-              ),
-            if (_tool == _Tool.translate)
-              Positioned.fill(
-                child: SelectArea(
-                  hint: S.of(context).selectTextHint,
-                  confirm: S.of(context).translateButton,
-                  onDone: _translateArea,
-                  onCancel: () => setState(() => _tool = _Tool.none),
+              if (_tool == _Tool.translate)
+                Positioned.fill(
+                  child: SelectArea(
+                    hint: S.of(context).selectTextHint,
+                    confirm: S.of(context).translateButton,
+                    onDone: _translateArea,
+                    onCancel: () => setState(() => _tool = _Tool.none),
+                  ),
                 ),
-              ),
-            if (_tool == _Tool.area)
-              Positioned.fill(
-                child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
-              ),
-            if (_tool == _Tool.ocr)
-              Positioned.fill(
-                child: SelectArea(
-                  hint: S.of(context).ocrHint,
-                  confirm: S.of(context).ocrButton,
-                  onDone: _ocrArea,
-                  onCancel: () => setState(() => _tool = _Tool.none),
+              if (_tool == _Tool.area)
+                Positioned.fill(
+                  child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
                 ),
-              ),
-            if (cache != null && _tool == _Tool.none && _beforeTranslation != null) _originalSwitch(),
-            if (cache != null && _tool == _Tool.none && !_rails) ...[_edgeStrip(true), _edgeStrip(false)],
-            if (cache != null && _tool == _Tool.none && _rails) ...[_rail(true), _rail(false)],
-            if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
-            if (_loading) const Center(child: CircularProgressIndicator()),
-          ],
+              if (_tool == _Tool.ocr)
+                Positioned.fill(
+                  child: SelectArea(
+                    hint: S.of(context).ocrHint,
+                    confirm: S.of(context).ocrButton,
+                    onDone: _ocrArea,
+                    onCancel: () => setState(() => _tool = _Tool.none),
+                  ),
+                ),
+              if (cache != null && _tool == _Tool.none && _beforeTranslation != null) _originalSwitch(),
+              if (cache != null && _tool == _Tool.none && !_rails) ...[_edgeStrip(true), _edgeStrip(false)],
+              if (cache != null && _tool == _Tool.none && _rails) ...[_rail(true), _rail(false)],
+              if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
+              if (_loading) const Center(child: CircularProgressIndicator()),
+            ],
+          ),
         ),
       ),
     );
