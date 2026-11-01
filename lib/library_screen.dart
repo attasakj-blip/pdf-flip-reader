@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'ads.dart';
+import 'desktop.dart';
 import 'flip_sounds.dart';
 import 'l10n.dart';
 import 'native_files.dart';
@@ -31,8 +31,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Settings get _settings => widget.settings;
 
   Future<void> _pick() async {
-    final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/books');
-    await dir.create(recursive: true);
+    final dir = await Desktop.booksDir();
     ({String name, String folder, String path, String? uri})? picked;
     try {
       // Keeps permission to write the original, for saving signed copies.
@@ -136,11 +135,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             icon: const Icon(Icons.music_note),
             onPressed: () => showSoundSettings(context, _settings, widget.sounds),
           ),
-          IconButton(
-            tooltip: s.exitApp,
-            icon: const Icon(Icons.power_settings_new),
-            onPressed: () => SystemNavigator.pop(),
-          ),
+          IconButton(tooltip: s.exitApp, icon: const Icon(Icons.power_settings_new), onPressed: Desktop.quit),
         ],
       ),
       bottomNavigationBar: const Center(heightFactor: 1, child: BannerSlot()),
@@ -197,7 +192,7 @@ String folderLabel(Uri uri) {
   if (uri.scheme == 'bookmark') return uri.queryParameters['folder'] ?? '';
   String path;
   if (uri.scheme == 'file') {
-    path = uri.toFilePath();
+    path = uri.toFilePath().replaceAll(r'\', '/');
   } else {
     final last = uri.pathSegments.isEmpty ? '' : Uri.decodeComponent(uri.pathSegments.last);
     final colon = last.indexOf(':');

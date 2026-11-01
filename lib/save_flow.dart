@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'l10n.dart';
 import 'library_screen.dart' show folderLabel;
+import 'desktop.dart';
 import 'native_files.dart';
 import 'settings.dart';
 
@@ -90,8 +91,7 @@ Future<SavedBook?> saveEdited(
 }
 
 Future<String> _localCopy(String edited, String name) async {
-  final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/books');
-  await dir.create(recursive: true);
+  final dir = await Desktop.booksDir();
   final path = '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_$name';
   await File(edited).copy(path);
   return path;

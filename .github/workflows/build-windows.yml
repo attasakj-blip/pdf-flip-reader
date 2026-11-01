@@ -1,0 +1,77 @@
+name: Build Windows app
+on:
+  push:
+    branches: [main, claude/project-thread-jtdkdb]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build windows --release --build-number ${{ github.run_number }}
+      # Text from scanned pages (OCR) runs the Tesseract program, which the
+      # app looks for in a "tesseract" folder next to Pagelume.exe. Language
+      # data is downloaded by the app when first needed, as on Android.
+      - name: Add Tesseract OCR
+        shell: pwsh
+        run: |
+          choco install tesseract -y --no-progress
+          $src = 'C:\Program Files\Tesseract-OCR'
+          if (-not (Test-Path "$src\tesseract.exe")) { throw 'Tesseract was not installed' }
+          $dest = 'build\windows\x64\runner\Release\tesseract'
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          Get-ChildItem $src -File | Where-Object { $_.Extension -in '.exe', '.dll' -and $_.Name -notlike 'unins*' -and $_.Name -notlike '*training*' } |
+            Copy-Item -Destination $dest
+          Remove-Item "$dest\winpath.exe", "$dest\tesseract-uninstall.exe" -ErrorAction SilentlyContinue
+          Copy-Item "$src\doc\LICENSE" "$dest\LICENSE.txt" -ErrorAction SilentlyContinue
+          & "$dest\tesseract.exe" --version
+      # Windows 11 PCs usually have the Visual C++ runtime, but a fresh one
+      # may not: put the three DLLs Flutter needs next to the app.
+      - name: Add the Visual C++ runtime
+        shell: pwsh
+        run: |
+          foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
+            Copy-Item "C:\Windows\System32\$dll" 'build\windows\x64\runner\Release\'
+          }
+      - name: Make the zip
+        shell: pwsh
+        run: |
+          $out = 'build\windows\x64\runner\Release'
+          Get-ChildItem $out -Recurse -File | Select-Object -ExpandProperty FullName
+          if (-not (Test-Path "$out\pdfium.dll")) { throw 'pdfium.dll is missing' }
+          New-Item -ItemType Directory -Force dist\Pagelume | Out-Null
+          Copy-Item "$out\*" dist\Pagelume -Recurse
+          Compress-Archive -Path dist\Pagelume -DestinationPath dist\Pagelume-windows.zip
+          Get-Item dist\Pagelume-windows.zip | Select-Object Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pagelume-windows
+          path: dist/Pagelume-windows.zip
+      # Keep the newest zip on a branch named "windows" (a link that never
+      # changes) and as the "windows" release.
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir pub && cp dist/Pagelume-windows.zip pub/
+          cd pub
+          git init -q -b windows
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add .
+          git commit -q -m "Build ${GITHUB_RUN_NUMBER} from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" windows
+          cd ..
+          gh release delete windows --yes --cleanup-tag || true
+          gh release create windows dist/Pagelume-windows.zip --target "$GITHUB_SHA" \
+            --title "Pagelume for Windows, build ${GITHUB_RUN_NUMBER}" --latest=false \
+            --notes "Download Pagelume-windows.zip, unzip it anywhere (for example Documents), then open Pagelume.exe in the Pagelume folder."
+          gh release edit windows --draft=false --latest=false

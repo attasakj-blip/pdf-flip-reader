@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'ambient.dart';
 import 'book_painter.dart';
+import 'desktop.dart';
 import 'edge_menu.dart';
 import 'edit_tools.dart';
 import 'flip_sounds.dart';
@@ -27,6 +28,7 @@ import 'settings.dart';
 import 'sound_settings.dart';
 import 'strings.g.dart' show languageNames;
 import 'translate_flow.dart';
+import 'translator.dart';
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book, required this.settings, required this.sounds});
@@ -460,11 +462,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   label: s.translateArea,
                   onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
                 ),
-                EdgeMenuItem(
-                  icon: Icons.g_translate,
-                  label: s.translateDoc.replaceAll('…', ''),
-                  onTap: _fromEdge(_translateDoc),
-                ),
+                if (DocTranslator.inApp)
+                  EdgeMenuItem(
+                    icon: Icons.g_translate,
+                    label: s.translateDoc.replaceAll('…', ''),
+                    onTap: _fromEdge(_translateDoc),
+                  ),
                 EdgeMenuItem(
                   icon: Icons.document_scanner,
                   label: s.ocrArea,
@@ -629,6 +632,20 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     _animateCorner(forward ? l.turnedCorner(true) : l.corner(true), () {
       _index += forward ? 1 : -1;
     });
+  }
+
+  DateTime _lastWheel = DateTime(2000);
+
+  /// Mouse wheel (Windows): one page per notch, unless zoomed in.
+  void _onWheel(PointerSignalEvent e) {
+    if (e is! PointerScrollEvent || _zoom != 1 || _tool != _Tool.none || !_idle) return;
+    if (HardwareKeyboard.instance.isControlPressed) return;
+    final dy = e.scrollDelta.dy;
+    if (dy.abs() < 1) return;
+    final now = DateTime.now();
+    if (now.difference(_lastWheel) < const Duration(milliseconds: 300)) return;
+    _lastWheel = now;
+    _turn(dy > 0);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
@@ -1026,6 +1043,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
     final to = await pickTargetLanguage(context, _settings);
     if (to == null || !mounted) return;
+    if (!DocTranslator.inApp) {
+      // Windows: no translator on the computer; Google Translate's website
+      // opens with the text filled in.
+      await openGoogleTranslate(context, segments.map((g) => cleanText(g.block.text)).join('\n\n'), to);
+      return;
+    }
     final message = ValueNotifier(s.translating);
     List<String>? out;
     try {
@@ -1196,6 +1219,10 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     final s = S.of(context);
     final to = await pickTargetLanguage(context, _settings);
     if (to == null || !mounted) return;
+    if (!DocTranslator.inApp) {
+      await openGoogleTranslate(context, cleanText(text), to);
+      return;
+    }
     final message = ValueNotifier(s.translating);
     List<String>? out;
     try {
@@ -1257,7 +1284,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         onKeyEvent: _onKey,
         child: Stack(
           children: [
-            Positioned.fill(child: cache == null ? const SizedBox.shrink() : _bookView(cache)),
+            Positioned.fill(
+              child: cache == null
+                  ? const SizedBox.shrink()
+                  : Listener(onPointerSignal: _onWheel, child: _bookView(cache)),
+            ),
             if (cache != null && _tool == _Tool.none) _topBar(),
             if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
             if (_tool == _Tool.sign && _signature != null)
@@ -1441,7 +1472,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'save') _saveWorking();
                 if (v == 'exit') {
                   _confirmLeave().then((ok) {
-                    if (ok) SystemNavigator.pop();
+                    if (ok) Desktop.quit();
                   });
                 }
                 if (v == 'lang') {
@@ -1460,7 +1491,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 _iconItem('copyArea', Icons.crop, S.of(context).copyAreaImage),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
                 _iconItem('translateArea', Icons.translate, S.of(context).translateArea),
-                _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
+                if (DocTranslator.inApp) _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
                 _iconItem('ocr', Icons.document_scanner, S.of(context).ocrArea),
                 if (_beforeTranslation != null)
                   _iconItem(

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -5,7 +6,9 @@ import 'package:path_provider/path_provider.dart';
 
 /// Reads text from a picture (a scanned page). Android uses Tesseract
 /// (on the phone; each language's data is downloaded once, about 1-8 MB);
-/// iOS uses Apple's Vision. Nothing is sent anywhere.
+/// iOS uses Apple's Vision; Windows runs the Tesseract program that comes
+/// with the app (in the "tesseract" folder next to Pagelume.exe). Nothing
+/// is sent anywhere.
 abstract class TextReader {
   /// Text in the PNG [png]. [langs] are app language codes, main one first.
   Future<String> read(Uint8List png, List<String> langs, {void Function()? onDownload});
@@ -20,7 +23,11 @@ class Ocr {
   };
 
   /// The reader in use; tests swap in a fake.
-  static TextReader instance = Platform.isIOS ? _VisionReader() : _TesseractReader();
+  static TextReader instance = Platform.isIOS
+      ? _VisionReader()
+      : Platform.isWindows
+      ? _WindowsTesseractReader()
+      : _TesseractReader();
 
   /// Languages to read for a menu language: it plus English.
   static List<String> defaultsFor(String uiCode) =>
@@ -55,18 +62,25 @@ class _TesseractReader implements TextReader {
     return 'https://raw.githubusercontent.com/tesseract-ocr/$kind/main/$name.traineddata';
   }
 
-  @override
-  Future<String> read(Uint8List png, List<String> langs, {void Function()? onDownload}) async {
+  /// Makes sure the language data for [names] is on the device; returns
+  /// the folder that holds the "tessdata" folder.
+  static Future<Directory> ensureData(List<String> names, void Function()? onDownload) async {
     final root = Directory('${(await getApplicationSupportDirectory()).path}/tesseract');
     final data = Directory('${root.path}/tessdata');
     await data.create(recursive: true);
-    final names = [for (final l in langs) Ocr.tesseract[l] ?? 'eng'];
     for (final name in names) {
       final file = File('${data.path}/$name.traineddata');
       if (await file.exists()) continue;
       onDownload?.call();
       await _download(_url(name), file);
     }
+    return root;
+  }
+
+  @override
+  Future<String> read(Uint8List png, List<String> langs, {void Function()? onDownload}) async {
+    final names = [for (final l in langs) Ocr.tesseract[l] ?? 'eng'];
+    final root = await ensureData(names, onDownload);
     final img = File('${(await getTemporaryDirectory()).path}/ocr_${DateTime.now().microsecondsSinceEpoch}.png');
     await img.writeAsBytes(png, flush: true);
     try {
@@ -93,6 +107,31 @@ class _TesseractReader implements TextReader {
       await part.rename(dest.path);
     } finally {
       client.close();
+    }
+  }
+}
+
+class _WindowsTesseractReader implements TextReader {
+  static String get _exe => '${File(Platform.resolvedExecutable).parent.path}\\tesseract\\tesseract.exe';
+
+  @override
+  Future<String> read(Uint8List png, List<String> langs, {void Function()? onDownload}) async {
+    if (!File(_exe).existsSync()) throw MissingPluginException('tesseract.exe');
+    final names = [for (final l in langs) Ocr.tesseract[l] ?? 'eng'];
+    final root = await _TesseractReader.ensureData(names, onDownload);
+    final img = File('${(await getTemporaryDirectory()).path}\\ocr_${DateTime.now().microsecondsSinceEpoch}.png');
+    await img.writeAsBytes(png, flush: true);
+    try {
+      final r = await Process.run(
+        _exe,
+        [img.path, 'stdout', '-l', names.join('+'), '--psm', '3', '--tessdata-dir', '${root.path}\\tessdata'],
+        stdoutEncoding: utf8,
+        stderrEncoding: utf8,
+      );
+      if (r.exitCode != 0) throw ProcessException(_exe, const [], '${r.stderr}'.trim(), r.exitCode);
+      return Ocr.tidy('${r.stdout}');
+    } finally {
+      img.delete().ignore();
     }
   }
 }
