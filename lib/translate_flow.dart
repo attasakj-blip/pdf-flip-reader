@@ -323,61 +323,89 @@ class _DocTranslateDialog extends StatefulWidget {
 }
 
 class _DocTranslateDialogState extends State<_DocTranslateDialog> {
-  late final Set<int> _pages = widget.preselected.take(widget.max).toSet();
-  late String _to = widget.settings.translateTo;
+  late final _from = TextEditingController(text: '${_first + 1}');
+  late final _to = TextEditingController(text: '${_last + 1}');
+  late String _lang = DocTranslator.languages.contains(widget.settings.translateTo)
+      ? widget.settings.translateTo
+      : 'en';
+
+  int get _first => widget.preselected.isEmpty ? 0 : widget.preselected.reduce(math.min);
+  int get _last {
+    final wanted = widget.preselected.isEmpty ? _first : widget.preselected.reduce(math.max);
+    return math.min(wanted, math.min(_first + widget.max - 1, widget.pageCount - 1));
+  }
+
+  @override
+  void dispose() {
+    _from.dispose();
+    _to.dispose();
+    super.dispose();
+  }
+
+  /// The chosen pages (0-based), or null with the reason shown.
+  List<int>? get _pages {
+    final a = int.tryParse(_from.text.trim()), b = int.tryParse(_to.text.trim());
+    if (a == null || b == null || a < 1 || b < a || b > widget.pageCount) return null;
+    if (b - a + 1 > widget.max) return null;
+    return [for (var p = a - 1; p < b; p++) p];
+  }
+
+  Widget _number(TextEditingController c, String label) => Expanded(
+    child: TextField(
+      controller: c,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
+      onChanged: (_) => setState(() {}),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
+    final pages = _pages;
     return AlertDialog(
       title: Text(s.translateDoc.replaceAll('…', '')),
       content: SizedBox(
         width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(s.translateTo, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: _to,
-              items: [
-                for (final c in DocTranslator.languages) DropdownMenuItem(value: c, child: Text(languageNames[c]!)),
-              ],
-              onChanged: (v) => setState(() => _to = v ?? _to),
-            ),
-            const SizedBox(height: 12),
-            Text(s.choosePages, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-            Text(s.pagesChosen(_pages.length, widget.max)),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (var p = 0; p < widget.pageCount; p++)
-                    CheckboxListTile(
-                      dense: true,
-                      value: _pages.contains(p),
-                      title: Text(s.pageN(p + 1)),
-                      onChanged: !_pages.contains(p) && _pages.length >= widget.max
-                          ? null
-                          : (v) => setState(() => v == true ? _pages.add(p) : _pages.remove(p)),
-                    ),
-                ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(s.choosePages(widget.max), style: const TextStyle(fontSize: 12, color: Colors.white70)),
+              const SizedBox(height: 10),
+              Row(children: [_number(_from, s.fromPage), const SizedBox(width: 12), _number(_to, s.toPage)]),
+              const SizedBox(height: 6),
+              Text(
+                pages == null ? '1 – ${widget.pageCount}' : s.pagesChosen(pages.length, widget.max),
+                style: TextStyle(fontSize: 12, color: pages == null ? Colors.amberAccent : Colors.white70),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              Text(s.translateTo, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+              DropdownButton<String>(
+                isExpanded: true,
+                value: _lang,
+                items: [
+                  for (final c in DocTranslator.languages) DropdownMenuItem(value: c, child: Text(languageNames[c]!)),
+                ],
+                onChanged: (v) => setState(() => _lang = v ?? _lang),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(S.of(context).cancel)),
-        FilledButton(
-          onPressed: _pages.isEmpty
+        FilledButton.icon(
+          icon: const Icon(Icons.translate, size: 18),
+          label: Text(s.startTranslate),
+          onPressed: pages == null
               ? null
               : () {
-                  widget.settings.translateTo = _to;
-                  Navigator.pop(context, (pages: _pages.toList()..sort(), to: _to));
+                  widget.settings.translateTo = _lang;
+                  Navigator.pop(context, (pages: pages, to: _lang));
                 },
-          child: Text(s.translateButton),
         ),
       ],
     );

@@ -147,7 +147,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Text copied',
     'placeTranslation': 'Put it on the page and save…',
     'close': 'Close',
-    'choosePages': 'Choose the pages to translate (up to 10)',
+    'choosePages': 'Choose the pages to translate (up to {max})',
     'pagesChosen': '{n} of {max} pages chosen',
     'translateFailed': 'Could not translate: {e}',
     'unknownLanguage': 'Could not tell what language this is.',
@@ -233,6 +233,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'The translation was saved as a new file, {x}. Open it now?',
     'webTranslateDocNote':
         'On Windows, whole documents are translated on Google Translate’s website, which keeps pictures and layout. Choose Documents there, upload the PDF and download the result.',
+    'fromPage': 'From page',
+    'toPage': 'To page',
   },
   'th': {
     'pickPdf': 'เลือกไฟล์ PDF จากเครื่อง',
@@ -354,7 +356,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'คัดลอกข้อความแล้ว',
     'placeTranslation': 'วางคำแปลลงบนหน้าแล้วบันทึก…',
     'close': 'ปิด',
-    'choosePages': 'เลือกหน้าที่ต้องการแปล (สูงสุด 10 หน้า)',
+    'choosePages': 'เลือกหน้าที่ต้องการแปล (สูงสุด {max} หน้า)',
     'pagesChosen': 'เลือกแล้ว {n} จาก {max} หน้า',
     'translateFailed': 'แปลไม่ได้: {e}',
     'unknownLanguage': 'ไม่ทราบว่าข้อความนี้เป็นภาษาอะไร',
@@ -439,6 +441,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'บันทึกคำแปลเป็นไฟล์ใหม่ชื่อ {x} แล้ว ต้องการเปิดเลยไหม',
     'webTranslateDocNote':
         'บน Windows การแปลทั้งเอกสารจะทำที่เว็บไซต์ Google Translate ซึ่งเก็บรูปภาพและรูปแบบหน้าไว้ให้ ที่หน้าเว็บให้เลือก "เอกสาร" อัปโหลดไฟล์ PDF แล้วดาวน์โหลดไฟล์ที่แปลแล้ว',
+    'fromPage': 'จากหน้า',
+    'toPage': 'ถึงหน้า',
   },
   'zh': {
     'pickPdf': '选择 PDF 文件',
@@ -560,7 +564,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': '文字已复制',
     'placeTranslation': '将译文放到页面上并保存…',
     'close': '关闭',
-    'choosePages': '选择要翻译的页面（最多 10 页）',
+    'choosePages': '选择要翻译的页面（最多 {max} 页）',
     'pagesChosen': '已选择 {n}/{max} 页',
     'translateFailed': '无法翻译：{e}',
     'unknownLanguage': '无法识别这是什么语言。',
@@ -642,6 +646,8 @@ const translations = <String, Map<String, String>>{
     'openTranslated': '打开',
     'openTranslatedQuestion': '译文已另存为新文件 {x}。现在打开吗？',
     'webTranslateDocNote': '在 Windows 上，整份文档在 Google 翻译网站上翻译，会保留图片和版式。在网站上选择“文档”，上传 PDF，然后下载结果。',
+    'fromPage': '从第几页',
+    'toPage': '到第几页',
   },
   'zh_Hant': {
     'pickPdf': '選擇 PDF 檔案',
@@ -763,7 +769,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': '文字已複製',
     'placeTranslation': '將譯文放到頁面上並儲存…',
     'close': '關閉',
-    'choosePages': '選擇要翻譯的頁面（最多 10 頁）',
+    'choosePages': '選擇要翻譯的頁面（最多 {max} 頁）',
     'pagesChosen': '已選擇 {n}/{max} 頁',
     'translateFailed': '無法翻譯：{e}',
     'unknownLanguage': '無法辨識這是什麼語言。',
@@ -845,6 +851,8 @@ const translations = <String, Map<String, String>>{
     'openTranslated': '開啟',
     'openTranslatedQuestion': '譯文已另存為新檔案 {x}。現在開啟嗎？',
     'webTranslateDocNote': '在 Windows 上，整份文件會在 Google 翻譯網站上翻譯，會保留圖片和版面。在網站上選擇「文件」，上傳 PDF，然後下載結果。',
+    'fromPage': '從第幾頁',
+    'toPage': '到第幾頁',
   },
   'ja': {
     'pickPdf': 'PDF ファイルを選ぶ',
@@ -966,7 +974,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'テキストをコピーしました',
     'placeTranslation': '訳文をページに載せて保存…',
     'close': '閉じる',
-    'choosePages': '翻訳するページを選んでください（最大 10 ページ）',
+    'choosePages': '翻訳するページを選んでください（最大 {max} ページ）',
     'pagesChosen': '{n} / {max} ページを選択済み',
     'translateFailed': '翻訳できませんでした：{e}',
     'unknownLanguage': '何語か判別できませんでした。',
@@ -1049,6 +1057,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': '翻訳を新しいファイル {x} として保存しました。今すぐ開きますか？',
     'webTranslateDocNote':
         'Windows 版では、文書全体の翻訳は Google 翻訳のウェブサイトで行います（画像やレイアウトは保たれます）。「ドキュメント」を選んで PDF をアップロードし、結果をダウンロードしてください。',
+    'fromPage': '開始ページ',
+    'toPage': '終了ページ',
   },
   'ko': {
     'pickPdf': 'PDF 파일 선택',
@@ -1170,7 +1180,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': '텍스트를 복사했습니다',
     'placeTranslation': '번역문을 페이지에 넣고 저장…',
     'close': '닫기',
-    'choosePages': '번역할 페이지를 선택하세요(최대 10페이지)',
+    'choosePages': '번역할 페이지를 선택하세요(최대 {max}페이지)',
     'pagesChosen': '{max}페이지 중 {n}페이지 선택됨',
     'translateFailed': '번역할 수 없습니다: {e}',
     'unknownLanguage': '어떤 언어인지 알 수 없습니다.',
@@ -1253,6 +1263,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': '번역을 새 파일 {x}(으)로 저장했습니다. 지금 열까요?',
     'webTranslateDocNote':
         'Windows에서는 문서 전체를 Google 번역 웹사이트에서 번역하며, 그림과 레이아웃이 유지됩니다. 거기서 "문서"를 선택해 PDF를 올리고 결과를 내려받으세요.',
+    'fromPage': '시작 페이지',
+    'toPage': '끝 페이지',
   },
   'fr': {
     'pickPdf': 'Choisir un fichier PDF',
@@ -1374,7 +1386,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Texte copié',
     'placeTranslation': 'Placer sur la page et enregistrer…',
     'close': 'Fermer',
-    'choosePages': 'Choisissez les pages à traduire (10 maximum)',
+    'choosePages': 'Choisissez les pages à traduire ({max} maximum)',
     'pagesChosen': 'Pages choisies : {n} sur {max}',
     'translateFailed': 'Impossible de traduire : {e}',
     'unknownLanguage': 'Impossible de reconnaître la langue.',
@@ -1462,6 +1474,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'La traduction a été enregistrée dans un nouveau fichier, {x}. L’ouvrir maintenant ?',
     'webTranslateDocNote':
         'Sous Windows, les documents entiers se traduisent sur le site de Google Traduction, qui garde les images et la mise en page. Choisissez Documents, importez le PDF puis téléchargez le résultat.',
+    'fromPage': 'De la page',
+    'toPage': 'À la page',
   },
   'de': {
     'pickPdf': 'PDF-Datei auswählen',
@@ -1583,7 +1597,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Text kopiert',
     'placeTranslation': 'Auf die Seite setzen und speichern…',
     'close': 'Schließen',
-    'choosePages': 'Wählen Sie die zu übersetzenden Seiten (bis zu 10)',
+    'choosePages': 'Wählen Sie die zu übersetzenden Seiten (bis zu {max})',
     'pagesChosen': 'Ausgewählte Seiten: {n} von {max}',
     'translateFailed': 'Übersetzung fehlgeschlagen: {e}',
     'unknownLanguage': 'Die Sprache konnte nicht erkannt werden.',
@@ -1670,6 +1684,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Die Übersetzung wurde als neue Datei {x} gespeichert. Jetzt öffnen?',
     'webTranslateDocNote':
         'Unter Windows werden ganze Dokumente auf der Website von Google Übersetzer übersetzt; Bilder und Layout bleiben erhalten. Wählen Sie dort Dokumente, laden Sie das PDF hoch und das Ergebnis herunter.',
+    'fromPage': 'Von Seite',
+    'toPage': 'Bis Seite',
   },
   'it': {
     'pickPdf': 'Scegli un file PDF',
@@ -1791,7 +1807,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Testo copiato',
     'placeTranslation': 'Metti sulla pagina e salva…',
     'close': 'Chiudi',
-    'choosePages': 'Scegli le pagine da tradurre (massimo 10)',
+    'choosePages': 'Scegli le pagine da tradurre (massimo {max})',
     'pagesChosen': 'Pagine scelte: {n} su {max}',
     'translateFailed': 'Impossibile tradurre: {e}',
     'unknownLanguage': 'Impossibile riconoscere la lingua.',
@@ -1877,6 +1893,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'La traduzione è stata salvata in un nuovo file, {x}. Aprirlo ora?',
     'webTranslateDocNote':
         'Su Windows i documenti interi si traducono sul sito di Google Traduttore, che mantiene immagini e impaginazione. Scegli Documenti, carica il PDF e scarica il risultato.',
+    'fromPage': 'Dalla pagina',
+    'toPage': 'Alla pagina',
   },
   'es': {
     'pickPdf': 'Elegir un archivo PDF',
@@ -1998,7 +2016,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Texto copiado',
     'placeTranslation': 'Poner en la página y guardar…',
     'close': 'Cerrar',
-    'choosePages': 'Elige las páginas que quieres traducir (hasta 10)',
+    'choosePages': 'Elige las páginas que quieres traducir (hasta {max})',
     'pagesChosen': 'Páginas elegidas: {n} de {max}',
     'translateFailed': 'No se pudo traducir: {e}',
     'unknownLanguage': 'No se pudo reconocer el idioma.',
@@ -2084,6 +2102,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'La traducción se guardó como un archivo nuevo, {x}. ¿Abrirlo ahora?',
     'webTranslateDocNote':
         'En Windows, los documentos completos se traducen en el sitio de Google Traductor, que conserva imágenes y diseño. Elige Documentos, sube el PDF y descarga el resultado.',
+    'fromPage': 'Desde la página',
+    'toPage': 'Hasta la página',
   },
   'pt': {
     'pickPdf': 'Escolher um arquivo PDF',
@@ -2205,7 +2225,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Texto copiado',
     'placeTranslation': 'Colocar na página e salvar…',
     'close': 'Fechar',
-    'choosePages': 'Escolha as páginas para traduzir (até 10)',
+    'choosePages': 'Escolha as páginas para traduzir (até {max})',
     'pagesChosen': 'Páginas escolhidas: {n} de {max}',
     'translateFailed': 'Não foi possível traduzir: {e}',
     'unknownLanguage': 'Não foi possível reconhecer o idioma.',
@@ -2292,6 +2312,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'A tradução foi salva como um novo arquivo, {x}. Abrir agora?',
     'webTranslateDocNote':
         'No Windows, documentos inteiros são traduzidos no site do Google Tradutor, que mantém imagens e layout. Escolha Documentos, envie o PDF e baixe o resultado.',
+    'fromPage': 'Da página',
+    'toPage': 'Até a página',
   },
   'ru': {
     'pickPdf': 'Выбрать PDF-файл',
@@ -2413,7 +2435,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Текст скопирован',
     'placeTranslation': 'Вставить на страницу и сохранить…',
     'close': 'Закрыть',
-    'choosePages': 'Выберите страницы для перевода (до 10)',
+    'choosePages': 'Выберите страницы для перевода (до {max})',
     'pagesChosen': 'Выбрано страниц: {n} из {max}',
     'translateFailed': 'Не удалось перевести: {e}',
     'unknownLanguage': 'Не удалось определить язык.',
@@ -2499,6 +2521,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Перевод сохранён в новый файл {x}. Открыть сейчас?',
     'webTranslateDocNote':
         'В Windows документ целиком переводится на сайте Google Переводчика, где сохраняются изображения и вёрстка. Выберите «Документы», загрузите PDF и скачайте результат.',
+    'fromPage': 'С страницы',
+    'toPage': 'По страницу',
   },
   'uk': {
     'pickPdf': 'Вибрати PDF-файл',
@@ -2620,7 +2644,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Текст скопійовано',
     'placeTranslation': 'Вставити на сторінку й зберегти…',
     'close': 'Закрити',
-    'choosePages': 'Виберіть сторінки для перекладу (до 10)',
+    'choosePages': 'Виберіть сторінки для перекладу (до {max})',
     'pagesChosen': 'Вибрано сторінок: {n} з {max}',
     'translateFailed': 'Не вдалося перекласти: {e}',
     'unknownLanguage': 'Не вдалося визначити мову.',
@@ -2706,6 +2730,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Переклад збережено в новий файл {x}. Відкрити зараз?',
     'webTranslateDocNote':
         'У Windows документ цілком перекладається на сайті Google Перекладача, де зберігаються зображення й макет. Виберіть «Документи», завантажте PDF і отримайте результат.',
+    'fromPage': 'Зі сторінки',
+    'toPage': 'До сторінки',
   },
   'pl': {
     'pickPdf': 'Wybierz plik PDF',
@@ -2827,7 +2853,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Skopiowano tekst',
     'placeTranslation': 'Umieść na stronie i zapisz…',
     'close': 'Zamknij',
-    'choosePages': 'Wybierz strony do przetłumaczenia (maks. 10)',
+    'choosePages': 'Wybierz strony do przetłumaczenia (maks. {max})',
     'pagesChosen': 'Wybrano stron: {n} z {max}',
     'translateFailed': 'Nie udało się przetłumaczyć: {e}',
     'unknownLanguage': 'Nie udało się rozpoznać języka.',
@@ -2913,6 +2939,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Tłumaczenie zapisano jako nowy plik {x}. Otworzyć teraz?',
     'webTranslateDocNote':
         'W systemie Windows całe dokumenty tłumaczy się na stronie Tłumacza Google, która zachowuje obrazy i układ. Wybierz Dokumenty, prześlij PDF i pobierz wynik.',
+    'fromPage': 'Od strony',
+    'toPage': 'Do strony',
   },
   'nl': {
     'pickPdf': 'Kies een pdf-bestand',
@@ -3035,7 +3063,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Tekst gekopieerd',
     'placeTranslation': 'Op de pagina zetten en opslaan…',
     'close': 'Sluiten',
-    'choosePages': 'Kies de pagina\'s om te vertalen (max. 10)',
+    'choosePages': 'Kies de pagina\'s om te vertalen (max. {max})',
     'pagesChosen': 'Gekozen pagina\'s: {n} van {max}',
     'translateFailed': 'Kan niet vertalen: {e}',
     'unknownLanguage': 'Kan de taal niet herkennen.',
@@ -3122,6 +3150,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'De vertaling is opgeslagen als nieuw bestand, {x}. Nu openen?',
     'webTranslateDocNote':
         'Op Windows worden hele documenten vertaald op de website van Google Translate, die afbeeldingen en opmaak behoudt. Kies daar Documenten, upload de pdf en download het resultaat.',
+    'fromPage': 'Van pagina',
+    'toPage': 'Tot pagina',
   },
   'tr': {
     'pickPdf': 'PDF dosyası seç',
@@ -3243,7 +3273,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Metin kopyalandı',
     'placeTranslation': 'Sayfaya yerleştir ve kaydet…',
     'close': 'Kapat',
-    'choosePages': 'Çevrilecek sayfaları seçin (en fazla 10)',
+    'choosePages': 'Çevrilecek sayfaları seçin (en fazla {max})',
     'pagesChosen': 'Seçilen sayfa: {n}/{max}',
     'translateFailed': 'Çevrilemedi: {e}',
     'unknownLanguage': 'Dil tanınamadı.',
@@ -3330,6 +3360,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Çeviri yeni bir dosya olarak kaydedildi: {x}. Şimdi açılsın mı?',
     'webTranslateDocNote':
         'Windows\'ta belgelerin tamamı, resimleri ve düzeni koruyan Google Çeviri web sitesinde çevrilir. Orada Belgeler\'i seçin, PDF\'yi yükleyin ve sonucu indirin.',
+    'fromPage': 'Başlangıç sayfası',
+    'toPage': 'Bitiş sayfası',
   },
   'ar': {
     'pickPdf': 'اختيار ملف PDF',
@@ -3451,7 +3483,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'تم نسخ النص',
     'placeTranslation': 'وضعها على الصفحة وحفظها…',
     'close': 'إغلاق',
-    'choosePages': 'اختر الصفحات المراد ترجمتها (حتى 10)',
+    'choosePages': 'اختر الصفحات المراد ترجمتها (حتى {max})',
     'pagesChosen': 'الصفحات المختارة: {n} من {max}',
     'translateFailed': 'تعذّرت الترجمة: {e}',
     'unknownLanguage': 'تعذّر التعرّف على اللغة.',
@@ -3535,6 +3567,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'تم حفظ الترجمة كملف جديد، {x}. هل تريد فتحه الآن؟',
     'webTranslateDocNote':
         'في Windows، تُترجم المستندات الكاملة على موقع ترجمة Google الذي يحافظ على الصور والتنسيق. اختر المستندات وارفع ملف PDF ثم نزّل النتيجة.',
+    'fromPage': 'من الصفحة',
+    'toPage': 'إلى الصفحة',
   },
   'hi': {
     'pickPdf': 'PDF फ़ाइल चुनें',
@@ -3656,7 +3690,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'टेक्स्ट कॉपी हो गया',
     'placeTranslation': 'पेज पर लगाएँ और सहेजें…',
     'close': 'बंद करें',
-    'choosePages': 'अनुवाद के लिए पेज चुनें (ज़्यादा से ज़्यादा 10)',
+    'choosePages': 'अनुवाद के लिए पेज चुनें (ज़्यादा से ज़्यादा {max})',
     'pagesChosen': '{max} में से {n} पेज चुने गए',
     'translateFailed': 'अनुवाद नहीं हो सका: {e}',
     'unknownLanguage': 'पता नहीं चल सका कि यह कौन-सी भाषा है।',
@@ -3742,6 +3776,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'अनुवाद नई फ़ाइल {x} के रूप में सहेजा गया। अभी खोलें?',
     'webTranslateDocNote':
         'Windows पर पूरे दस्तावेज़ Google Translate की वेबसाइट पर अनुवादित होते हैं, जो चित्र और लेआउट बनाए रखती है। वहाँ दस्तावेज़ चुनें, PDF अपलोड करें और परिणाम डाउनलोड करें।',
+    'fromPage': 'पेज से',
+    'toPage': 'पेज तक',
   },
   'bn': {
     'pickPdf': 'PDF ফাইল বেছে নিন',
@@ -3863,7 +3899,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'লেখা কপি হয়েছে',
     'placeTranslation': 'পৃষ্ঠায় বসিয়ে সংরক্ষণ করুন…',
     'close': 'বন্ধ করুন',
-    'choosePages': 'অনুবাদের জন্য পৃষ্ঠা বেছে নিন (সর্বোচ্চ 10টি)',
+    'choosePages': 'অনুবাদের জন্য পৃষ্ঠা বেছে নিন (সর্বোচ্চ {max}টি)',
     'pagesChosen': '{max}টির মধ্যে {n}টি পৃষ্ঠা বেছে নেওয়া হয়েছে',
     'translateFailed': 'অনুবাদ করা যায়নি: {e}',
     'unknownLanguage': 'এটি কোন ভাষা তা বোঝা যায়নি।',
@@ -3948,6 +3984,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'অনুবাদটি নতুন ফাইল {x} হিসেবে সংরক্ষিত হয়েছে। এখনই খুলবেন?',
     'webTranslateDocNote':
         'Windows-এ পুরো নথি Google Translate-এর ওয়েবসাইটে অনুবাদ হয়, যা ছবি ও বিন্যাস ঠিক রাখে। সেখানে নথি বেছে নিয়ে PDF আপলোড করুন এবং ফল ডাউনলোড করুন।',
+    'fromPage': 'পৃষ্ঠা থেকে',
+    'toPage': 'পৃষ্ঠা পর্যন্ত',
   },
   'id': {
     'pickPdf': 'Pilih file PDF',
@@ -4069,7 +4107,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Teks disalin',
     'placeTranslation': 'Taruh di halaman lalu simpan…',
     'close': 'Tutup',
-    'choosePages': 'Pilih halaman yang akan diterjemahkan (maks. 10)',
+    'choosePages': 'Pilih halaman yang akan diterjemahkan (maks. {max})',
     'pagesChosen': '{n} dari {max} halaman dipilih',
     'translateFailed': 'Tidak dapat menerjemahkan: {e}',
     'unknownLanguage': 'Tidak dapat mengenali bahasanya.',
@@ -4156,6 +4194,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Terjemahan disimpan sebagai file baru, {x}. Buka sekarang?',
     'webTranslateDocNote':
         'Di Windows, seluruh dokumen diterjemahkan di situs Google Terjemahan, yang mempertahankan gambar dan tata letak. Pilih Dokumen, unggah PDF, lalu unduh hasilnya.',
+    'fromPage': 'Dari halaman',
+    'toPage': 'Sampai halaman',
   },
   'ms': {
     'pickPdf': 'Pilih fail PDF',
@@ -4277,7 +4317,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Teks disalin',
     'placeTranslation': 'Letak pada halaman dan simpan…',
     'close': 'Tutup',
-    'choosePages': 'Pilih halaman untuk diterjemah (maksimum 10)',
+    'choosePages': 'Pilih halaman untuk diterjemah (maksimum {max})',
     'pagesChosen': '{n} daripada {max} halaman dipilih',
     'translateFailed': 'Tidak dapat menterjemah: {e}',
     'unknownLanguage': 'Tidak dapat mengenal pasti bahasa ini.',
@@ -4365,6 +4405,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Terjemahan disimpan sebagai fail baharu, {x}. Buka sekarang?',
     'webTranslateDocNote':
         'Di Windows, keseluruhan dokumen diterjemah di laman web Google Terjemah, yang mengekalkan gambar dan susun atur. Pilih Dokumen, muat naik PDF dan muat turun hasilnya.',
+    'fromPage': 'Dari halaman',
+    'toPage': 'Hingga halaman',
   },
   'vi': {
     'pickPdf': 'Chọn tệp PDF',
@@ -4486,7 +4528,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Đã sao chép văn bản',
     'placeTranslation': 'Đặt lên trang và lưu…',
     'close': 'Đóng',
-    'choosePages': 'Chọn các trang cần dịch (tối đa 10)',
+    'choosePages': 'Chọn các trang cần dịch (tối đa {max})',
     'pagesChosen': 'Đã chọn {n}/{max} trang',
     'translateFailed': 'Không dịch được: {e}',
     'unknownLanguage': 'Không nhận ra đây là ngôn ngữ gì.',
@@ -4571,6 +4613,8 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Bản dịch đã được lưu thành tệp mới, {x}. Mở ngay?',
     'webTranslateDocNote':
         'Trên Windows, toàn bộ tài liệu được dịch trên trang web Google Dịch, nơi giữ nguyên hình ảnh và bố cục. Chọn Tài liệu, tải PDF lên rồi tải kết quả xuống.',
+    'fromPage': 'Từ trang',
+    'toPage': 'Đến trang',
   },
   'fil': {
     'pickPdf': 'Pumili ng PDF file',
@@ -4692,7 +4736,7 @@ const translations = <String, Map<String, String>>{
     'textCopied': 'Nakopya ang teksto',
     'placeTranslation': 'Ilagay sa pahina at i-save…',
     'close': 'Isara',
-    'choosePages': 'Piliin ang mga pahinang isasalin (hanggang 10)',
+    'choosePages': 'Piliin ang mga pahinang isasalin (hanggang {max})',
     'pagesChosen': 'Napiling pahina: {n} sa {max}',
     'translateFailed': 'Hindi maisalin: {e}',
     'unknownLanguage': 'Hindi matukoy kung anong wika ito.',
@@ -4779,5 +4823,7 @@ const translations = <String, Map<String, String>>{
     'openTranslatedQuestion': 'Na-save ang salin bilang bagong file, {x}. Buksan na ngayon?',
     'webTranslateDocNote':
         'Sa Windows, isinasalin ang buong dokumento sa website ng Google Translate, na nagpapanatili ng mga larawan at layout. Piliin ang Documents doon, i-upload ang PDF at i-download ang resulta.',
+    'fromPage': 'Mula sa pahina',
+    'toPage': 'Hanggang pahina',
   },
 };

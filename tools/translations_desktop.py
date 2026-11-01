@@ -92,4 +92,12 @@ DESKTOP = {
         'Di Windows, keseluruhan dokumen diterjemah di laman web Google Terjemah, yang mengekalkan gambar dan susun atur. Pilih Dokumen, muat naik PDF dan muat turun hasilnya.',
         'Trên Windows, toàn bộ tài liệu được dịch trên trang web Google Dịch, nơi giữ nguyên hình ảnh và bố cục. Chọn Tài liệu, tải PDF lên rồi tải kết quả xuống.',
         'Sa Windows, isinasalin ang buong dokumento sa website ng Google Translate, na nagpapanatili ng mga larawan at layout. Piliin ang Documents doon, i-upload ang PDF at i-download ang resulta.'),
+    'fromPage': row(
+        'From page', 'จากหน้า', '从第几页', '從第幾頁', '開始ページ', '시작 페이지', 'De la page', 'Von Seite', 'Dalla pagina',
+        'Desde la página', 'Da página', 'С страницы', 'Зі сторінки', 'Od strony', 'Van pagina', 'Başlangıç sayfası',
+        'من الصفحة', 'पेज से', 'পৃষ্ঠা থেকে', 'Dari halaman', 'Dari halaman', 'Từ trang', 'Mula sa pahina'),
+    'toPage': row(
+        'To page', 'ถึงหน้า', '到第几页', '到第幾頁', '終了ページ', '끝 페이지', 'À la page', 'Bis Seite', 'Alla pagina',
+        'Hasta la página', 'Até a página', 'По страницу', 'До сторінки', 'Do strony', 'Tot pagina', 'Bitiş sayfası',
+        'إلى الصفحة', 'पेज तक', 'পৃষ্ঠা পর্যন্ত', 'Sampai halaman', 'Hingga halaman', 'Đến trang', 'Hanggang pahina'),
 }
