@@ -29,7 +29,8 @@ jobs:
           New-Item -ItemType Directory -Force $dest | Out-Null
           Get-ChildItem $src -File | Where-Object { $_.Extension -in '.exe', '.dll' -and $_.Name -notlike 'unins*' -and $_.Name -notlike '*training*' } |
             Copy-Item -Destination $dest
-          Remove-Item "$dest\winpath.exe", "$dest\tesseract-uninstall.exe" -ErrorAction SilentlyContinue
+          # Only tesseract.exe is used; the rest are tools for training it.
+          Get-ChildItem $dest -Filter *.exe | Where-Object Name -ne 'tesseract.exe' | Remove-Item
           Copy-Item "$src\doc\LICENSE" "$dest\LICENSE.txt" -ErrorAction SilentlyContinue
           & "$dest\tesseract.exe" --version
       # Windows 11 PCs usually have the Visual C++ runtime, but a fresh one
@@ -55,7 +56,8 @@ jobs:
           name: pagelume-windows
           path: dist/Pagelume-windows.zip
       # Keep the newest zip on a branch named "windows" (a link that never
-      # changes) and as the "windows" release.
+      # changes) and as the "windows-app" release (a tag named "windows" would
+      # clash with the branch).
       - name: Publish
         shell: bash
         env:
@@ -70,8 +72,9 @@ jobs:
           git commit -q -m "Build ${GITHUB_RUN_NUMBER} from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" windows
           cd ..
-          gh release delete windows --yes --cleanup-tag || true
-          gh release create windows dist/Pagelume-windows.zip --target "$GITHUB_SHA" \
+          gh release delete windows --yes --cleanup-tag || true  # old name
+          gh release delete windows-app --yes --cleanup-tag || true
+          gh release create windows-app dist/Pagelume-windows.zip --target "$GITHUB_SHA" \
             --title "Pagelume for Windows, build ${GITHUB_RUN_NUMBER}" --latest=false \
             --notes "Download Pagelume-windows.zip, unzip it anywhere (for example Documents), then open Pagelume.exe in the Pagelume folder."
-          gh release edit windows --draft=false --latest=false
+          gh release edit windows-app --draft=false --latest=false
