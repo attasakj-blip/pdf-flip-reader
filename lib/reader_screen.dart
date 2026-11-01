@@ -463,11 +463,14 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   label: s.translateArea,
                   onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
                 ),
-                EdgeMenuItem(
-                  icon: Icons.g_translate,
-                  label: s.translateDoc.replaceAll('…', ''),
-                  onTap: _fromEdge(_translateDoc),
-                ),
+                // Windows has no translator on the computer, so whole-document
+                // translation is left out there ("Translate text" stays).
+                if (DocTranslator.inApp)
+                  EdgeMenuItem(
+                    icon: Icons.g_translate,
+                    label: s.translateDoc.replaceAll('…', ''),
+                    onTap: _fromEdge(_translateDoc),
+                  ),
                 EdgeMenuItem(
                   icon: Icons.document_scanner,
                   label: s.ocrArea,
@@ -1533,7 +1536,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 _iconItem('copyArea', Icons.crop, S.of(context).copyAreaImage),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
                 _iconItem('translateArea', Icons.translate, S.of(context).translateArea),
-                _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
+                if (DocTranslator.inApp) _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
                 _iconItem('ocr', Icons.document_scanner, S.of(context).ocrArea),
                 if (_beforeTranslation != null)
                   _iconItem(
