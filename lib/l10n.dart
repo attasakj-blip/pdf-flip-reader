@@ -193,6 +193,10 @@ class S {
   String get underline => _f('underline');
   String get typeHere => _f('typeHere');
   String get editText => _f('editText');
+  String get eraser => _f('eraser');
+  String get sizeSmall => _f('sizeSmall');
+  String get sizeMedium => _f('sizeMedium');
+  String get sizeLarge => _f('sizeLarge');
   String stepText(String n) => _f('stepText', {'n': n});
   String get showOriginal => _f('showOriginal');
   String get showTranslated => _f('showTranslated');

@@ -94,6 +94,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   bool _controlsVisible = true;
   _Tool _tool = _Tool.none;
   final _marks = <Mark>[];
+  // The markup tools open with the eraser chosen (from its own button).
+  bool _markErase = false;
   // Text boxes being placed, and the style the next one starts with.
   final _notes = <TextNote>[];
   final _noteStyle = TextNote(text: '', flags: [], font: '', size: 16, color: const Color(0xFF111111));
@@ -456,7 +458,24 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
           icon: Icons.format_color_text,
           label: s.markup,
           onTap: _fromEdge(() {
-            if (_editAllowed()) setState(() => _tool = _Tool.markup);
+            if (_editAllowed()) {
+              setState(() {
+                _markErase = false;
+                _tool = _Tool.markup;
+              });
+            }
+          }),
+        ),
+        EdgeMenuItem(
+          icon: Icons.auto_fix_normal,
+          label: s.eraser,
+          onTap: _fromEdge(() {
+            if (_editAllowed()) {
+              setState(() {
+                _markErase = true;
+                _tool = _Tool.markup;
+              });
+            }
           }),
         ),
         EdgeMenuItem(icon: Icons.text_fields, label: s.insertText, onTap: _fromEdge(_startText)),
@@ -1537,6 +1556,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                     zoom: _zoom,
                     pan: _screenPan,
                     onZoom: _setScreenZoom,
+                    erasing: _markErase,
                     onDone: _saveMarks,
                     onCancel: () => setState(() {
                       _tool = _Tool.none;
@@ -1706,7 +1726,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'sign') _startSigning();
                 if (v == 'copyPage') _copyPage();
                 if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
-                if (v == 'markup' && _editAllowed()) setState(() => _tool = _Tool.markup);
+                if (v == 'markup' && _editAllowed()) {
+                  setState(() {
+                    _markErase = false;
+                    _tool = _Tool.markup;
+                  });
+                }
                 if (v == 'text') _startText();
                 if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
                 if (v == 'undoList') _showUndoList();

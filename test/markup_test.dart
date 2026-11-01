@@ -111,4 +111,69 @@ void main() {
     expect(zoomed, greaterThan(1.5));
     expect(marks, hasLength(1));
   });
+
+  testWidgets('a drawn box can be moved and resized, and the eraser takes marks out', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    final marks = <Mark>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: const [SDelegate()],
+        home: Scaffold(
+          body: MarkupLayer(
+            slots: const [(page: 0, rect: Rect.fromLTWH(200, 0, 400, 600))],
+            marks: marks,
+            zoom: 1,
+            pan: Offset.zero,
+            onZoom: (_, _) {},
+            onDone: () {},
+            onCancel: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> drag(Offset from, Offset to) async {
+      final g = await tester.startGesture(from);
+      for (var i = 1; i <= 6; i++) {
+        await g.moveTo(Offset.lerp(from, to, i / 6)!);
+        await tester.pump();
+      }
+      await g.up();
+      await tester.pump();
+    }
+
+    await tester.tap(find.byTooltip('Rectangle'));
+    await tester.pump();
+    await drag(const Offset(300, 100), const Offset(400, 200)); // box 100 x 100
+    final box = marks.single;
+    Rect onScreen() => Rect.fromPoints(
+      Offset(200 + box.points.first.dx * 400, box.points.first.dy * 600),
+      Offset(200 + box.points.last.dx * 400, box.points.last.dy * 600),
+    );
+    expect(onScreen().width, closeTo(100, 1));
+
+    // Drag the bottom-right grip outwards: bigger.
+    await drag(const Offset(400, 200), const Offset(460, 260));
+    expect(marks, hasLength(1));
+    expect(onScreen().width, closeTo(160, 3));
+    expect(onScreen().height, closeTo(160, 3));
+
+    // Drag the middle: it moves, same size.
+    await drag(const Offset(380, 180), const Offset(330, 230));
+    expect(onScreen().left, closeTo(250, 3));
+    expect(onScreen().top, closeTo(150, 3));
+    expect(onScreen().width, closeTo(160, 3));
+
+    // A pen stroke elsewhere, then erase only the box.
+    await tester.tap(find.byTooltip('Pen (free drawing)'));
+    await tester.pump();
+    await drag(const Offset(250, 500), const Offset(550, 520));
+    expect(marks, hasLength(2));
+    await tester.tap(find.byTooltip('Eraser'));
+    await tester.pump();
+    expect(find.text('Large'), findsOneWidget);
+    await drag(Offset(onScreen().left - 5, onScreen().center.dy), Offset(onScreen().left + 5, onScreen().center.dy));
+    expect(marks, hasLength(1));
+    expect(marks.single.tool, MarkTool.pen);
+  });
 }

@@ -141,4 +141,18 @@ FLIP = {
         'Texto na página {n}', 'Текст на стр. {n}', 'Текст на с. {n}', 'Tekst na stronie {n}', 'Tekst op pagina {n}',
         '{n}. sayfada metin', 'نص في الصفحة {n}', 'पेज {n} पर टेक्स्ट', 'পৃষ্ঠা {n}-এ লেখা', 'Teks di halaman {n}',
         'Teks di halaman {n}', 'Văn bản ở trang {n}', 'Teksto sa pahina {n}'),
+    'eraser': row(
+        'Eraser', 'ยางลบ', '橡皮擦', '橡皮擦', '消しゴム', '지우개', 'Gomme', 'Radierer', 'Gomma', 'Borrador', 'Borracha',
+        'Ластик', 'Гумка', 'Gumka', 'Gum', 'Silgi', 'ممحاة', 'रबड़', 'ইরেজার', 'Penghapus', 'Pemadam', 'Tẩy',
+        'Pambura'),
+    'sizeSmall': row(
+        'Small', 'เล็ก', '小', '小', '小', '작게', 'Petite', 'Klein', 'Piccola', 'Pequeña', 'Pequena', 'Малый',
+        'Малий', 'Mała', 'Klein', 'Küçük', 'صغير', 'छोटा', 'ছোট', 'Kecil', 'Kecil', 'Nhỏ', 'Maliit'),
+    'sizeMedium': row(
+        'Medium', 'กลาง', '中', '中', '中', '중간', 'Moyenne', 'Mittel', 'Media', 'Mediana', 'Média', 'Средний',
+        'Середній', 'Średnia', 'Middel', 'Orta', 'متوسط', 'मध्यम', 'মাঝারি', 'Sedang', 'Sederhana', 'Vừa',
+        'Katamtaman'),
+    'sizeLarge': row(
+        'Large', 'ใหญ่', '大', '大', '大', '크게', 'Grande', 'Groß', 'Grande', 'Grande', 'Grande', 'Большой',
+        'Великий', 'Duża', 'Groot', 'Büyük', 'كبير', 'बड़ा', 'বড়', 'Besar', 'Besar', 'Lớn', 'Malaki'),
 }
