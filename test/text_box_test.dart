@@ -140,5 +140,16 @@ void main() {
     expect(got!.text, 'สวัสดี hello');
     expect(got!.flags, hasLength(got!.text.length));
     expect(got!.font, 'Sarabun');
+
+    // No more than 300 letters fit in one box.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'ก' * 400);
+    await tester.pump();
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text.length, maxNoteLength);
+    expect((field.controller! as RichTextController).flags, hasLength(maxNoteLength));
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
   });
 }

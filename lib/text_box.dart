@@ -16,6 +16,9 @@ const kBold = 1, kItalic = 2, kUnderline = 4;
 /// processor; on screen they scale with the page.
 const _pageWidthPt = 595.0;
 
+/// The most letters one text box may hold.
+const maxNoteLength = 300;
+
 /// Sizes offered, as in a word processor.
 const textSizes = <double>[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72];
 
@@ -352,6 +355,8 @@ class _TextEditorState extends State<_TextEditor> {
                 controller: _ctl,
                 autofocus: true,
                 maxLines: null,
+                // At most 300 letters in one box; the counter shows how many are left.
+                maxLength: maxNoteLength,
                 keyboardType: TextInputType.multiline,
                 cursorColor: Colors.blue,
                 style: TextStyle(fontFamily: _font, fontSize: math.min(_size * 1.4, 40), color: _color, height: 1.25),
