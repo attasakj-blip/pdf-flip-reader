@@ -436,7 +436,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
             icon: Icons.zoom_in,
             label: '${s.zoomIn} ($pct)',
             caption: pct,
-            enabled: _zoom < _maxZoom,
+            enabled: _zoom < _buttonMaxZoom - 0.01,
             onTap: () => _stepZoom(1),
           ),
           EdgeMenuItem(
@@ -600,11 +600,13 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
   }
 
-  /// Windows zoom buttons: 10% steps between 100% and [_maxZoom], keeping
+  static const _buttonMaxZoom = 4.0;
+
+  /// Windows zoom buttons: 10% steps between 100% and 400%, keeping
   /// the middle of the window where it is.
   void _stepZoom(int steps) {
     if (!_idle) return;
-    final z = ((_zoom * 10).round() + steps).clamp(10, (_maxZoom * 10).round()) / 10;
+    final z = ((_zoom * 10).round() + steps).clamp(10, (_buttonMaxZoom * 10).round()) / 10;
     if (z == _zoom) return;
     if (z <= 1) {
       _resetZoom();
