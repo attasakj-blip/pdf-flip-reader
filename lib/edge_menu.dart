@@ -6,8 +6,18 @@ import 'package:flutter/material.dart';
 /// One entry of an [EdgeMenu]. Give [on] for a setting that is switched on
 /// and off; the menu then stays open so the change can be seen.
 class EdgeMenuItem {
-  const EdgeMenuItem({required this.icon, required this.label, required this.onTap, this.on, this.enabled = true});
+  const EdgeMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.on,
+    this.enabled = true,
+    this.caption,
+  });
   final IconData icon;
+
+  /// Small text under the icon in an [EdgeRail], such as "120%".
+  final String? caption;
   final String label;
   final VoidCallback onTap;
   final bool? on;
@@ -319,7 +329,7 @@ class EdgeRail extends StatelessWidget {
   Widget _button(EdgeMenuItem item) {
     final toggle = item.on != null;
     final lit = toggle && item.on!;
-    return Padding(
+    final button = Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Tooltip(
         message: item.label,
@@ -351,6 +361,15 @@ class EdgeRail extends StatelessWidget {
           ),
         ),
       ),
+    );
+    final caption = item.caption;
+    if (caption == null) return button;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        button,
+        Text(caption, style: const TextStyle(fontSize: 11, color: Color(0xFFFFE2A8))),
+      ],
     );
   }
 }

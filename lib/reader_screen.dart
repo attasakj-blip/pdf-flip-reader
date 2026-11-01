@@ -429,7 +429,23 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   List<EdgeMenuItem> _edgeItems(bool left) {
     final s = S.of(context);
     if (left) {
+      final pct = '${(_zoom * 100).round()}%';
       return [
+        if (_rails) ...[
+          EdgeMenuItem(
+            icon: Icons.zoom_in,
+            label: '${s.zoomIn} ($pct)',
+            caption: pct,
+            enabled: _zoom < _maxZoom,
+            onTap: () => _stepZoom(1),
+          ),
+          EdgeMenuItem(
+            icon: Icons.zoom_out,
+            label: '${s.zoomOut} ($pct)',
+            enabled: _zoom > 1,
+            onTap: () => _stepZoom(-1),
+          ),
+        ],
         EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
         EdgeMenuItem(
           icon: Icons.format_color_text,
@@ -584,6 +600,26 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
   }
 
+  /// Windows zoom buttons: 10% steps between 100% and [_maxZoom], keeping
+  /// the middle of the window where it is.
+  void _stepZoom(int steps) {
+    if (!_idle) return;
+    final z = ((_zoom * 10).round() + steps).clamp(10, (_maxZoom * 10).round()) / 10;
+    if (z == _zoom) return;
+    if (z <= 1) {
+      _resetZoom();
+      return;
+    }
+    final size = _bookSize;
+    final mid = Offset(size.width / 2, size.height / 2);
+    final anchor = (mid - _pan) / _zoom;
+    setState(() {
+      _zoom = z;
+      _pan = _clampPan(mid - anchor * z, z, size);
+      _renderZoom = math.min(z, 2.5);
+    });
+  }
+
   /// Keeps the zoomed book covering the screen.
   Offset _clampPan(Offset p, double z, Size size) =>
       Offset(p.dx.clamp(size.width * (1 - z), 0.0), p.dy.clamp(size.height * (1 - z), 0.0));
@@ -699,10 +735,14 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     // another page while the tool stays out.
     final annotating = _tool == _Tool.sign || _tool == _Tool.markup;
     if (_tool != _Tool.none && !annotating) return;
-    if (_zoom != 1 && !annotating) return;
     if (HardwareKeyboard.instance.isControlPressed) return;
     final dy = e.scrollDelta.dy;
     if (dy.abs() < 1) return;
+    if (_zoom != 1 && !annotating) {
+      // Zoomed in: the wheel moves up and down the page.
+      setState(() => _pan = _clampPan(_pan - Offset(e.scrollDelta.dx, dy), _zoom, _bookSize));
+      return;
+    }
     final now = DateTime.now();
     if (now.difference(_lastWheel) < const Duration(milliseconds: 300)) return;
     _lastWheel = now;

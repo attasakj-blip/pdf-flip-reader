@@ -66,4 +66,12 @@ FLIP = {
         'Ліцензії open source', 'Licencje open source', 'Opensourcelicenties', 'Açık kaynak lisansları',
         'تراخيص المصادر المفتوحة', 'ओपन-सोर्स लाइसेंस', 'ওপেন-সোর্স লাইসেন্স', 'Lisensi sumber terbuka',
         'Lesen sumber terbuka', 'Giấy phép nguồn mở', 'Mga lisensiyang open-source'),
+    'zoomIn': row(
+        'Zoom in', 'ซูมเข้า', '放大', '放大', '拡大', '확대', 'Zoom avant', 'Vergrößern', 'Ingrandisci', 'Acercar',
+        'Aumentar zoom', 'Увеличить', 'Збільшити', 'Powiększ', 'Inzoomen', 'Yakınlaştır', 'تكبير', 'ज़ूम इन',
+        'জুম ইন', 'Perbesar', 'Zum masuk', 'Phóng to', 'Palakihin'),
+    'zoomOut': row(
+        'Zoom out', 'ซูมออก', '缩小', '縮小', '縮小', '축소', 'Zoom arrière', 'Verkleinern', 'Riduci', 'Alejar',
+        'Diminuir zoom', 'Уменьшить', 'Зменшити', 'Pomniejsz', 'Uitzoomen', 'Uzaklaştır', 'تصغير', 'ज़ूम आउट',
+        'জুম আউট', 'Perkecil', 'Zum keluar', 'Thu nhỏ', 'Paliitin'),
 }

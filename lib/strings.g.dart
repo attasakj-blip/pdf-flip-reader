@@ -241,6 +241,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Old page lifts away',
     'flipZoom': 'Soft zoom and fade',
     'licenses': 'Open-source licences',
+    'zoomIn': 'Zoom in',
+    'zoomOut': 'Zoom out',
   },
   'th': {
     'pickPdf': 'เลือกไฟล์ PDF จากเครื่อง',
@@ -456,6 +458,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'ยกหน้าเดิมออก',
     'flipZoom': 'ย่อจางนุ่ม ๆ',
     'licenses': 'สัญญาอนุญาตโอเพนซอร์ส',
+    'zoomIn': 'ซูมเข้า',
+    'zoomOut': 'ซูมออก',
   },
   'zh': {
     'pickPdf': '选择 PDF 文件',
@@ -671,6 +675,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': '旧页移开',
     'flipZoom': '柔和缩放淡出',
     'licenses': '开源许可',
+    'zoomIn': '放大',
+    'zoomOut': '缩小',
   },
   'zh_Hant': {
     'pickPdf': '選擇 PDF 檔案',
@@ -886,6 +892,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': '舊頁移開',
     'flipZoom': '柔和縮放淡出',
     'licenses': '開源授權',
+    'zoomIn': '放大',
+    'zoomOut': '縮小',
   },
   'ja': {
     'pickPdf': 'PDF ファイルを選ぶ',
@@ -1101,6 +1109,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': '前のページが離れる',
     'flipZoom': 'やわらかズーム',
     'licenses': 'オープンソースライセンス',
+    'zoomIn': '拡大',
+    'zoomOut': '縮小',
   },
   'ko': {
     'pickPdf': 'PDF 파일 선택',
@@ -1316,6 +1326,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': '이전 페이지 걷어내기',
     'flipZoom': '부드러운 확대·페이드',
     'licenses': '오픈소스 라이선스',
+    'zoomIn': '확대',
+    'zoomOut': '축소',
   },
   'fr': {
     'pickPdf': 'Choisir un fichier PDF',
@@ -1531,6 +1543,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'L’ancienne page s’écarte',
     'flipZoom': 'Zoom doux et fondu',
     'licenses': 'Licences open source',
+    'zoomIn': 'Zoom avant',
+    'zoomOut': 'Zoom arrière',
   },
   'de': {
     'pickPdf': 'PDF-Datei auswählen',
@@ -1746,6 +1760,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Alte Seite hebt sich weg',
     'flipZoom': 'Sanftes Zoomen und Blenden',
     'licenses': 'Open-Source-Lizenzen',
+    'zoomIn': 'Vergrößern',
+    'zoomOut': 'Verkleinern',
   },
   'it': {
     'pickPdf': 'Scegli un file PDF',
@@ -1961,6 +1977,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'La pagina precedente si alza',
     'flipZoom': 'Zoom morbido e dissolvenza',
     'licenses': 'Licenze open source',
+    'zoomIn': 'Ingrandisci',
+    'zoomOut': 'Riduci',
   },
   'es': {
     'pickPdf': 'Elegir un archivo PDF',
@@ -2176,6 +2194,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'La página anterior se aparta',
     'flipZoom': 'Zoom suave y fundido',
     'licenses': 'Licencias de código abierto',
+    'zoomIn': 'Acercar',
+    'zoomOut': 'Alejar',
   },
   'pt': {
     'pickPdf': 'Escolher um arquivo PDF',
@@ -2391,6 +2411,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'A página anterior se afasta',
     'flipZoom': 'Zoom suave e esmaecer',
     'licenses': 'Licenças de código aberto',
+    'zoomIn': 'Aumentar zoom',
+    'zoomOut': 'Diminuir zoom',
   },
   'ru': {
     'pickPdf': 'Выбрать PDF-файл',
@@ -2606,6 +2628,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Старая страница уходит',
     'flipZoom': 'Мягкий зум и затухание',
     'licenses': 'Лицензии open source',
+    'zoomIn': 'Увеличить',
+    'zoomOut': 'Уменьшить',
   },
   'uk': {
     'pickPdf': 'Вибрати PDF-файл',
@@ -2821,6 +2845,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Стара сторінка відходить',
     'flipZoom': 'М’який зум і згасання',
     'licenses': 'Ліцензії open source',
+    'zoomIn': 'Збільшити',
+    'zoomOut': 'Зменшити',
   },
   'pl': {
     'pickPdf': 'Wybierz plik PDF',
@@ -3036,6 +3062,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Stara strona odjeżdża',
     'flipZoom': 'Delikatny zoom i przenikanie',
     'licenses': 'Licencje open source',
+    'zoomIn': 'Powiększ',
+    'zoomOut': 'Pomniejsz',
   },
   'nl': {
     'pickPdf': 'Kies een pdf-bestand',
@@ -3251,6 +3279,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Oude pagina schuift weg',
     'flipZoom': 'Zacht zoomen en vervagen',
     'licenses': 'Opensourcelicenties',
+    'zoomIn': 'Inzoomen',
+    'zoomOut': 'Uitzoomen',
   },
   'tr': {
     'pickPdf': 'PDF dosyası seç',
@@ -3466,6 +3496,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Eski sayfa kalkar',
     'flipZoom': 'Yumuşak yakınlaştırma',
     'licenses': 'Açık kaynak lisansları',
+    'zoomIn': 'Yakınlaştır',
+    'zoomOut': 'Uzaklaştır',
   },
   'ar': {
     'pickPdf': 'اختيار ملف PDF',
@@ -3681,6 +3713,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'الصفحة القديمة تُرفع',
     'flipZoom': 'تكبير وتلاشٍ ناعم',
     'licenses': 'تراخيص المصادر المفتوحة',
+    'zoomIn': 'تكبير',
+    'zoomOut': 'تصغير',
   },
   'hi': {
     'pickPdf': 'PDF फ़ाइल चुनें',
@@ -3896,6 +3930,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'पुराना पेज हटता है',
     'flipZoom': 'हल्का ज़ूम और फ़ेड',
     'licenses': 'ओपन-सोर्स लाइसेंस',
+    'zoomIn': 'ज़ूम इन',
+    'zoomOut': 'ज़ूम आउट',
   },
   'bn': {
     'pickPdf': 'PDF ফাইল বেছে নিন',
@@ -4111,6 +4147,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'পুরনো পৃষ্ঠা সরে যায়',
     'flipZoom': 'নরম জুম ও ফেড',
     'licenses': 'ওপেন-সোর্স লাইসেন্স',
+    'zoomIn': 'জুম ইন',
+    'zoomOut': 'জুম আউট',
   },
   'id': {
     'pickPdf': 'Pilih file PDF',
@@ -4326,6 +4364,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Halaman lama terangkat',
     'flipZoom': 'Zoom lembut dan pudar',
     'licenses': 'Lisensi sumber terbuka',
+    'zoomIn': 'Perbesar',
+    'zoomOut': 'Perkecil',
   },
   'ms': {
     'pickPdf': 'Pilih fail PDF',
@@ -4541,6 +4581,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Halaman lama terangkat',
     'flipZoom': 'Zum lembut dan pudar',
     'licenses': 'Lesen sumber terbuka',
+    'zoomIn': 'Zum masuk',
+    'zoomOut': 'Zum keluar',
   },
   'vi': {
     'pickPdf': 'Chọn tệp PDF',
@@ -4756,6 +4798,8 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Trang cũ nhấc ra',
     'flipZoom': 'Thu phóng mờ nhẹ',
     'licenses': 'Giấy phép nguồn mở',
+    'zoomIn': 'Phóng to',
+    'zoomOut': 'Thu nhỏ',
   },
   'fil': {
     'pickPdf': 'Pumili ng PDF file',
@@ -4971,5 +5015,7 @@ const translations = <String, Map<String, String>>{
     'flipUncover': 'Umaalis ang lumang pahina',
     'flipZoom': 'Malambot na zoom at fade',
     'licenses': 'Mga lisensiyang open-source',
+    'zoomIn': 'Palakihin',
+    'zoomOut': 'Paliitin',
   },
 };

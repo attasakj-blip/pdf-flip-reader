@@ -181,6 +181,8 @@ class S {
   String get flipUncover => _f('flipUncover');
   String get flipZoom => _f('flipZoom');
   String get licenses => _f('licenses');
+  String get zoomIn => _f('zoomIn');
+  String get zoomOut => _f('zoomOut');
   String get showOriginal => _f('showOriginal');
   String get showTranslated => _f('showTranslated');
   String get viewingOriginal => _f('viewingOriginal');
