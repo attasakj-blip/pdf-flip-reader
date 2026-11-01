@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'desktop.dart';
 import 'l10n.dart';
 import 'native_files.dart';
 import 'pdf_edit.dart';
@@ -11,31 +12,55 @@ import 'settings.dart';
 import 'strings.g.dart' show languageNames;
 import 'translator.dart';
 
-/// Asks which language to translate into; remembers the choice.
-Future<String?> pickTargetLanguage(BuildContext context, Settings settings) {
-  final s = S.of(context);
-  return showDialog<String>(
-    context: context,
-    builder: (ctx) => SimpleDialog(
+/// Asks which language to translate into; remembers the choice. Tap a
+/// language (the last one used is ticked), then the Translate button.
+Future<String?> pickTargetLanguage(BuildContext context, Settings settings) => showDialog<String>(
+  context: context,
+  builder: (_) => _TargetLanguageDialog(settings: settings),
+);
+
+class _TargetLanguageDialog extends StatefulWidget {
+  const _TargetLanguageDialog({required this.settings});
+  final Settings settings;
+
+  @override
+  State<_TargetLanguageDialog> createState() => _TargetLanguageDialogState();
+}
+
+class _TargetLanguageDialogState extends State<_TargetLanguageDialog> {
+  late String _to = DocTranslator.languages.contains(widget.settings.translateTo) ? widget.settings.translateTo : 'en';
+
+  void _go() {
+    widget.settings.translateTo = _to;
+    Navigator.pop(context, _to);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    return AlertDialog(
       title: Text(s.translateTo),
-      children: [
-        RadioGroup<String>(
-          groupValue: settings.translateTo,
-          onChanged: (v) {
-            if (v != null) settings.translateTo = v;
-            Navigator.pop(ctx, v);
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      contentPadding: const EdgeInsets.only(top: 12),
+      content: SizedBox(
+        width: 360,
+        child: RadioGroup<String>(
+          groupValue: _to,
+          onChanged: (v) => setState(() => _to = v ?? _to),
+          child: ListView(
+            shrinkWrap: true,
             children: [
               for (final code in DocTranslator.languages)
-                RadioListTile<String>(value: code, title: Text(languageNames[code]!)),
+                RadioListTile<String>(value: code, dense: true, title: Text(languageNames[code]!)),
             ],
           ),
         ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
+        FilledButton.icon(icon: const Icon(Icons.translate, size: 18), label: Text(s.startTranslate), onPressed: _go),
       ],
-    ),
-  );
+    );
+  }
 }
 
 /// Shows a progress dialog with [message] while [work] runs, then closes it.
@@ -194,6 +219,31 @@ Future<void> showWebTranslation(BuildContext context, String text, String to) {
   );
 }
 
+/// Windows: opens Google Translate's page for translating whole documents
+/// (upload the PDF there; it keeps the layout), after saying so.
+Future<void> openGoogleTranslateDocs(BuildContext context) async {
+  final s = S.of(context);
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(s.translateDoc.replaceAll('…', '')),
+      content: Text(s.webTranslateDocNote),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.cancel)),
+        FilledButton.icon(
+          icon: const Icon(Icons.g_translate, size: 18),
+          label: Text(s.openGoogleTranslate),
+          onPressed: () => Navigator.pop(ctx, true),
+        ),
+      ],
+    ),
+  );
+  if (go != true) return;
+  try {
+    await Desktop.openUrl('https://translate.google.com/?op=docs');
+  } catch (_) {}
+}
+
 /// Opens [text] in Google Translate (app or website).
 Future<void> openGoogleTranslate(BuildContext context, String text, String to) async {
   try {
@@ -249,7 +299,7 @@ Future<({List<int> pages, String to})?> askDocTranslation(
   Settings settings,
   int pageCount,
   List<int> preselected, {
-  int maxPages = 10,
+  int maxPages = 20,
 }) => showDialog(
   context: context,
   builder: (_) =>
@@ -298,7 +348,7 @@ class _DocTranslateDialogState extends State<_DocTranslateDialog> {
             ),
             const SizedBox(height: 12),
             Text(s.choosePages, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-            Text(s.pagesChosen(_pages.length)),
+            Text(s.pagesChosen(_pages.length, widget.max)),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
@@ -336,7 +386,19 @@ class _DocTranslateDialogState extends State<_DocTranslateDialog> {
 
 /// Draws [text] to cover [block] on a page: the paper colour behind it,
 /// then the text as large as fits. Returns a [Stamp] for [PdfEditor].
-Future<Stamp> renderTranslation(int page, TextBlock block, String text, PagePixels? pixels, Size pageSize) async {
+///
+/// With [fill] false the background stays see-through (for a translated
+/// copy, where the old text has been taken out). [fontSize] (points) sets
+/// the size instead of the largest that fits.
+Future<Stamp> renderTranslation(
+  int page,
+  TextBlock block,
+  String text,
+  PagePixels? pixels,
+  Size pageSize, {
+  bool fill = true,
+  double? fontSize,
+}) async {
   // A little margin so the old letters' edges are covered too.
   final padX = 1.5 / pageSize.width, padY = 1.5 / pageSize.height;
   final rect = (
@@ -359,8 +421,8 @@ Future<Stamp> renderTranslation(int page, TextBlock block, String text, PagePixe
 
   final rec = ui.PictureRecorder();
   final canvas = Canvas(rec);
-  canvas.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = paper);
-  final painter = fitText(text, Size(tw, th), ink, start: block.lineHeight * k * 0.8);
+  if (fill) canvas.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = paper);
+  final painter = fitText(text, Size(tw, th), ink, start: (fontSize ?? block.lineHeight * 0.8) * k);
   canvas.save();
   canvas.translate(w / 2, h / 2);
   canvas.rotate(block.turns * math.pi / 2);
@@ -432,6 +494,118 @@ Future<List<Stamp>> translatedStamps(String path, int page, List<TextBlock> bloc
   final px = await PdfEditor.render(path, page);
   final size = Size(px.width.toDouble(), px.height.toDouble());
   return [for (var i = 0; i < blocks.length; i++) await renderTranslation(page, blocks[i], texts[i], px, size)];
+}
+
+/// Stamps for a translated copy of one page (see
+/// [PdfEditor.translatedCopy]). Text of the same kind (body text, headings)
+/// gets one size across the page, so the page reads evenly; each block may
+/// grow into the empty space below it before its text is made smaller.
+Future<List<Stamp>> translatedPageStamps(String path, int page, List<TextBlock> blocks, List<String> texts) async {
+  final px = await PdfEditor.render(path, page);
+  final size = Size(px.width.toDouble(), px.height.toDouble());
+  final boxes = roomyBlocks(blocks, pixels: px);
+  final sizes = evenSizes(boxes, texts, size);
+  return [
+    for (var i = 0; i < boxes.length; i++)
+      await renderTranslation(page, boxes[i], texts[i], px, size, fill: false, fontSize: sizes[i]),
+  ];
+}
+
+/// [blocks] with each one's box stretched down into the free space below
+/// it (up to the next block it would run into, or the bottom margin), so a
+/// longer translation has room. Sideways text keeps its box.
+///
+/// With [pixels] (the page as shown), the free space ends at the first
+/// thing drawn below the block, such as a picture or a table line.
+List<TextBlock> roomyBlocks(List<TextBlock> blocks, {PagePixels? pixels}) {
+  double limit(TextBlock b) {
+    var y = _roomBelow(b, blocks);
+    if (pixels != null) y = math.min(y, _emptyBelow(b.rect, pixels, y));
+    return y;
+  }
+
+  return [
+    for (final b in blocks)
+      if (b.turns.isOdd)
+        b
+      else
+        (
+          text: b.text,
+          rect: (
+            left: b.rect.left,
+            top: b.rect.top,
+            width: b.rect.width,
+            height: math.max(b.rect.height, limit(b) - b.rect.top),
+          ),
+          lineHeight: b.lineHeight,
+          turns: b.turns,
+        ),
+  ];
+}
+
+/// How far down (fraction of the page, at most [until]) the paper under
+/// [r] stays empty.
+double _emptyBelow(PageRect r, PagePixels px, double until) {
+  final paper = _paperColor(px, r);
+  final pr = (paper.r * 255).round(), pg = (paper.g * 255).round(), pb = (paper.b * 255).round();
+  final x0 = (r.left * px.width).floor().clamp(0, px.width - 1);
+  final x1 = ((r.left + r.width) * px.width).ceil().clamp(0, px.width - 1);
+  final y0 = ((r.top + r.height) * px.height).ceil() + 2;
+  final y1 = math.min(px.height - 1, (until * px.height).floor());
+  for (var y = y0; y <= y1; y++) {
+    for (var x = x0; x <= x1; x++) {
+      final i = (y * px.width + x) * 4;
+      if ((px.bgra[i + 2] - pr).abs() > 40 || (px.bgra[i + 1] - pg).abs() > 40 || (px.bgra[i] - pb).abs() > 40) {
+        return math.max(r.top + r.height, (y - 2) / px.height);
+      }
+    }
+  }
+  return until;
+}
+
+double _roomBelow(TextBlock b, List<TextBlock> all) {
+  final bottom = b.rect.top + b.rect.height;
+  var limit = 0.95; // bottom margin
+  for (final o in all) {
+    if (identical(o, b)) continue;
+    final overlaps = o.rect.left < b.rect.left + b.rect.width && o.rect.left + o.rect.width > b.rect.left;
+    if (overlaps && o.rect.top >= bottom - 0.002) limit = math.min(limit, o.rect.top - 0.004);
+  }
+  // Don't stretch a block more than about three times its height.
+  return math.min(limit, b.rect.top + b.rect.height * 3);
+}
+
+/// One font size (points) per kind of text on the page. Blocks whose
+/// original line heights are within about 20% count as the same kind; the
+/// kind's size is the smallest that fits all of them, but never below 60%
+/// of the original, and a block that still doesn't fit at that size gets
+/// its own smaller size.
+List<double> evenSizes(List<TextBlock> boxes, List<String> texts, Size page) {
+  double fits(int i, double start) {
+    final b = boxes[i];
+    final w = b.rect.width * page.width, h = b.rect.height * page.height;
+    final box = b.turns.isOdd ? Size(h, w) : Size(w, h);
+    return fitText(texts[i], box, const Color(0xFF000000), start: start).text!.style!.fontSize!;
+  }
+
+  final natural = [for (final b in boxes) b.lineHeight * 0.8];
+  final fitted = [for (var i = 0; i < boxes.length; i++) fits(i, natural[i])];
+  final out = List<double>.from(fitted);
+  final done = <int>{};
+  for (var i = 0; i < boxes.length; i++) {
+    if (done.contains(i)) continue;
+    final group = [
+      for (var j = i; j < boxes.length; j++)
+        if (!done.contains(j) && (natural[j] - natural[i]).abs() <= 0.2 * math.max(natural[i], natural[j])) j,
+    ];
+    done.addAll(group);
+    final base = group.map((j) => natural[j]).reduce(math.min);
+    final even = math.max(group.map((j) => fitted[j]).reduce(math.min), base * 0.6);
+    for (final j in group) {
+      out[j] = math.min(fitted[j], even);
+    }
+  }
+  return out;
 }
 
 /// Blocks worth translating: skip ones with no letters (page numbers,

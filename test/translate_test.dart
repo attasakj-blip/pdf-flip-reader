@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,6 +85,75 @@ void main() {
     await doc.dispose();
   });
 
+  test('translated copy keeps chosen pages, pictures and tables, without the old text', () async {
+    final d = pw.Document();
+    for (var n = 1; n <= 3; n++) {
+      d.addPage(
+        pw.Page(
+          pageFormat: p.PdfPageFormat.a4,
+          build: (_) => pw.Padding(
+            padding: const pw.EdgeInsets.all(40),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Chapter $n', style: const pw.TextStyle(fontSize: 28)),
+                pw.SizedBox(height: 12),
+                pw.Paragraph(
+                  text:
+                      'This is the first paragraph of page $n. It has a few sentences so that it wraps '
+                      'over several lines, like the text in a real book does.',
+                ),
+                pw.Container(width: 200, height: 80, color: const p.PdfColor(0.1, 0.5, 0.9)), // a picture
+                pw.SizedBox(height: 12),
+                pw.TableHelper.fromTextArray(
+                  data: [
+                    ['Name', 'Amount'],
+                    ['Apples', '12'],
+                    ['Pears', '7'],
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+                pw.Paragraph(text: 'A closing note under the table.'),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    final src = '${dir.path}/book.pdf', out = '${dir.path}/book_th.pdf';
+    File(src).writeAsBytesSync(await d.save());
+
+    final stamps = <Stamp>[];
+    for (final page in [0, 2]) {
+      final blocks = translatable(await PdfEditor.textBlocks(src, page));
+      expect(blocks, isNotEmpty);
+      final texts = [for (final b in blocks) 'XX ${b.text.toUpperCase()} (A LONGER TRANSLATION)'];
+      stamps.addAll(await translatedPageStamps(src, page, blocks, texts));
+    }
+    await PdfEditor.translatedCopy(src, out, [0, 2], stamps);
+
+    final doc = await PdfDocument.openFile(out);
+    expect(doc.pages.length, 2);
+    for (final page in doc.pages) {
+      final text = (await page.loadText())?.fullText ?? '';
+      expect(text, isNot(contains('paragraph')));
+      final img = (await page.render(fullWidth: page.width, fullHeight: page.height))!;
+      var blue = 0, ink = 0;
+      for (var i = 0; i < img.pixels.length; i += 4) {
+        final b = img.pixels[i], g = img.pixels[i + 1], r = img.pixels[i + 2];
+        if (b > 200 && r < 60 && g > 100 && g < 150) blue++;
+        if (r < 80 && g < 80 && b < 80) ink++;
+      }
+      expect(blue, greaterThan(10000)); // the picture is still there
+      expect(ink, greaterThan(500)); // translated text drawn
+      final shots = Directory('build/translate_shots')..createSync(recursive: true);
+      final png = await _png(img.pixels, img.width, img.height);
+      File('${shots.path}/page_${page.pageNumber}.png').writeAsBytesSync(png);
+      img.dispose();
+    }
+    await doc.dispose();
+  });
+
   test('translateAll prepares the language packs once and keeps order', () async {
     final fake = FakeTranslator();
     DocTranslator.instance = fake;
@@ -100,16 +171,16 @@ void main() {
     expect(small.text!.style!.fontSize!, lessThan(big.text!.style!.fontSize!));
   });
 
-  testWidgets('whole-document translation allows at most 10 pages', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets('language picker has a Translate button, even for the language already chosen', (tester) async {
+    SharedPreferences.setMockInitialValues({'translateTo': 'th'});
     final settings = await Settings.load();
-    ({List<int> pages, String to})? result;
+    String? result;
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: const [SDelegate()],
         home: Builder(
           builder: (ctx) => TextButton(
-            onPressed: () async => result = await askDocTranslation(ctx, settings, 14, List.generate(14, (i) => i)),
+            onPressed: () async => result = await pickTargetLanguage(ctx, settings),
             child: const Text('go'),
           ),
         ),
@@ -118,10 +189,51 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('go'));
     await tester.pumpAndSettle();
-    expect(find.text('10 of 10 pages chosen'), findsOneWidget);
+    await tester.tap(find.text('ไทย')); // already chosen: nothing should happen yet
+    await tester.pumpAndSettle();
+    expect(result, isNull);
     await tester.tap(find.widgetWithText(FilledButton, 'Translate'));
     await tester.pumpAndSettle();
-    expect(result!.pages, List.generate(10, (i) => i));
+    expect(result, 'th');
+  });
+
+  testWidgets('whole-document translation allows at most 20 pages', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    ({List<int> pages, String to})? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: const [SDelegate()],
+        home: Builder(
+          builder: (ctx) => TextButton(
+            onPressed: () async => result = await askDocTranslation(ctx, settings, 24, List.generate(24, (i) => i)),
+            child: const Text('go'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('go'));
+    await tester.pumpAndSettle();
+    expect(find.text('20 of 20 pages chosen'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Translate'));
+    await tester.pumpAndSettle();
+    expect(result!.pages, List.generate(20, (i) => i));
     expect(result!.to, 'en');
   });
+}
+
+Future<Uint8List> _png(Uint8List bgra, int w, int h) async {
+  final rgba = Uint8List(bgra.length);
+  for (var i = 0; i < bgra.length; i += 4) {
+    rgba[i] = bgra[i + 2];
+    rgba[i + 1] = bgra[i + 1];
+    rgba[i + 2] = bgra[i];
+    rgba[i + 3] = 255;
+  }
+  final buf = await ui.ImmutableBuffer.fromUint8List(rgba);
+  final desc = ui.ImageDescriptor.raw(buf, width: w, height: h, pixelFormat: ui.PixelFormat.rgba8888);
+  final frame = await (await desc.instantiateCodec()).getNextFrame();
+  final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+  return data!.buffer.asUint8List();
 }

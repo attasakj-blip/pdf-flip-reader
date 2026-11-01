@@ -60,6 +60,58 @@ class PdfEditor {
         }
       });
 
+  /// A new PDF at [dest] holding only [pages] of [src] (in their order in
+  /// the book), with all of their own text taken out and [stamps] (the
+  /// translations) drawn in its place. Pictures, tables, lines and colours
+  /// stay as they were.
+  static Future<void> translatedCopy(String src, String dest, List<int> pages, List<Stamp> stamps) =>
+      _edit(src, dest, (handle) {
+        final document = pd.FPDF_DOCUMENT.fromAddress(handle);
+        final keep = pages.toSet();
+        // Only pages that got a translation lose their own text (a page in a
+        // language that couldn't be told, or a scan, stays as it was).
+        for (final i in stamps.map((st) => st.page).toSet()) {
+          final page = pdfium.FPDF_LoadPage(document, i);
+          if (page == nullptr) continue;
+          try {
+            for (var k = pdfium.FPDFPage_CountObjects(page) - 1; k >= 0; k--) {
+              final o = pdfium.FPDFPage_GetObject(page, k);
+              final type = pdfium.FPDFPageObj_GetType(o);
+              if (type == pd.FPDF_PAGEOBJ_TEXT) {
+                if (pdfium.FPDFPage_RemoveObject(page, o) != 0) pdfium.FPDFPageObj_Destroy(o);
+              } else if (type == pd.FPDF_PAGEOBJ_FORM) {
+                _removeFormText(o);
+              }
+            }
+            pdfium.FPDFPage_GenerateContent(page);
+          } finally {
+            pdfium.FPDF_ClosePage(page);
+          }
+        }
+        for (final st in stamps) {
+          _stamp(handle, st.page, st.rgba, st.w, st.h, st.rect);
+        }
+        final count = pdfium.FPDF_GetPageCount(document);
+        for (var i = count - 1; i >= 0; i--) {
+          if (!keep.contains(i)) pdfium.FPDFPage_Delete(document, i);
+        }
+      });
+
+  /// Takes the text out of a form object (a reusable piece of a page, such
+  /// as a template), and out of forms inside it.
+  static void _removeFormText(pd.FPDF_PAGEOBJECT form) {
+    for (var k = pdfium.FPDFFormObj_CountObjects(form) - 1; k >= 0; k--) {
+      final o = pdfium.FPDFFormObj_GetObject(form, k);
+      if (o == nullptr) continue;
+      final type = pdfium.FPDFPageObj_GetType(o);
+      if (type == pd.FPDF_PAGEOBJ_TEXT) {
+        if (pdfium.FPDFFormObj_RemoveObject(form, o) != 0) pdfium.FPDFPageObj_Destroy(o);
+      } else if (type == pd.FPDF_PAGEOBJ_FORM) {
+        _removeFormText(o);
+      }
+    }
+  }
+
   /// Paragraphs of text on page [pageIndex] (0-based), in reading order.
   /// Empty for scanned pages, which carry pictures of text only.
   static Future<List<TextBlock>> textBlocks(String path, int pageIndex) =>
@@ -355,7 +407,10 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
     }
     final mid = (c.t + c.b) / 2, hh = c.b - c.t;
     final last = cur.lastWhere((x) => !x.blank, orElse: () => c);
-    final newLine = lineMid != null && ((mid - lineMid).abs() > 0.6 * lineH! || c.l < last.l - 3 * lineH);
+    // A new line also starts after a wide gap: the next table cell or column.
+    final newLine =
+        lineMid != null &&
+        ((mid - lineMid).abs() > 0.6 * lineH! || c.l < last.l - 3 * lineH || (c.l - last.r) > 2.5 * lineH);
     if (newLine) {
       lines.add(cur);
       cur = [];

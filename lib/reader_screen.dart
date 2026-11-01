@@ -463,12 +463,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   label: s.translateArea,
                   onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
                 ),
-                if (DocTranslator.inApp)
-                  EdgeMenuItem(
-                    icon: Icons.g_translate,
-                    label: s.translateDoc.replaceAll('…', ''),
-                    onTap: _fromEdge(_translateDoc),
-                  ),
+                EdgeMenuItem(
+                  icon: Icons.g_translate,
+                  label: s.translateDoc.replaceAll('…', ''),
+                  onTap: _fromEdge(_translateDoc),
+                ),
                 EdgeMenuItem(
                   icon: Icons.document_scanner,
                   label: s.ocrArea,
@@ -1099,53 +1098,70 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     );
   }
 
+  /// Translates chosen pages into a new PDF file: the pages keep their
+  /// pictures, tables and layout, with the translation where the text was.
+  /// The book on screen is not changed. Windows has no translator on the
+  /// computer, so there it opens Google Translate's document page instead.
   Future<void> _translateDoc() async {
-    if (!_editAllowed()) return;
-    _resetZoom();
     final s = S.of(context);
+    if (!DocTranslator.inApp) {
+      await openGoogleTranslateDocs(context);
+      return;
+    }
+    _resetZoom();
     final total = _cache!.pageCount;
     final visible = _slots.map((e) => e.page).toList();
     final ask = await askDocTranslation(
       context,
       _settings,
       total,
-      total <= 10 ? List.generate(total, (i) => i) : visible,
+      total <= 20 ? List.generate(total, (i) => i) : visible,
     );
     if (ask == null || !mounted) return;
     final message = ValueNotifier(s.translating);
     final stamps = <Stamp>[];
-    final done = <int>[];
     bool? unknown;
+    var anyText = false;
+    String? out;
     try {
-      await withProgress(context, message, () async {
+      out = await withProgress(context, message, () async {
         for (var k = 0; k < ask.pages.length; k++) {
           final page = ask.pages[k];
           message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}';
-          final blocks = translatable(await PdfEditor.textBlocks(_path, page));
-          if (blocks.isEmpty) continue;
-          final out = await translateAll(
-            [for (final b in blocks) b.text],
+          // Every bit of text is redrawn on the new page; only blocks with
+          // letters are translated (page numbers and figures stay as they are).
+          final blocks = await PdfEditor.textBlocks(_path, page);
+          final words = translatable(blocks);
+          if (words.isEmpty) continue;
+          anyText = true;
+          final translated = await translateAll(
+            [for (final b in words) b.text],
             ask.to,
             message: message,
             s: s,
             onProgress: (_) => message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}',
           );
-          if (out == null) {
+          if (translated == null) {
             unknown ??= true;
             continue;
           }
           unknown = false;
-          done.add(page);
-          stamps.addAll(await translatedStamps(_path, page, blocks, out));
+          final byBlock = {for (var i = 0; i < words.length; i++) words[i]: translated[i]};
+          final texts = [for (final b in blocks) byBlock[b] ?? b.text];
+          stamps.addAll(await translatedPageStamps(_path, page, blocks, texts));
         }
+        if (stamps.isEmpty) return null;
+        final dest = await _scratchPdf();
+        await PdfEditor.translatedCopy(_path, dest, ask.pages, stamps);
+        return dest;
       });
     } catch (e) {
       if (mounted) _toast(s.translateFailed(e));
       return;
     }
     if (!mounted) return;
-    if (stamps.isEmpty) {
-      if (unknown == true) {
+    if (out == null) {
+      if (anyText && unknown == true) {
         _toast(s.unknownLanguage);
       } else {
         // No text layer: likely a scan. Point to reading text from the image.
@@ -1159,13 +1175,27 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       }
       return;
     }
-    await _runEdit(
-      keepPage: ask.pages.first,
-      suffix: 'translated_${ask.to}',
-      label: s.stepTranslate(_pageList(done), languageNames[ask.to] ?? ask.to),
-      translated: true,
-      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps, replaceText: true),
+    final base = _book.name.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '');
+    final saved = await saveAsNewFile(context, _settings, _book, out, suggested: '${base}_${ask.to}.pdf');
+    File(out).delete().ignore();
+    if (saved == null || !mounted) return;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(s.openTranslatedQuestion(saved.name)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.close)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.openTranslated)),
+        ],
+      ),
     );
+    if (open == true && mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ReaderScreen(book: saved, settings: _settings, sounds: widget.sounds),
+        ),
+      );
+    }
   }
 
   // ------------------------------------------------------ text from scans ---
@@ -1503,7 +1533,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 _iconItem('copyArea', Icons.crop, S.of(context).copyAreaImage),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
                 _iconItem('translateArea', Icons.translate, S.of(context).translateArea),
-                if (DocTranslator.inApp) _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
+                _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
                 _iconItem('ocr', Icons.document_scanner, S.of(context).ocrArea),
                 if (_beforeTranslation != null)
                   _iconItem(

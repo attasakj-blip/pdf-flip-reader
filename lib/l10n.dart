@@ -60,6 +60,9 @@ class S {
   String get webTranslateNote => _f('webTranslateNote');
   String get startTranslate => _f('startTranslate');
   String get inkColor => _f('inkColor');
+  String get openTranslated => _f('openTranslated');
+  String openTranslatedQuestion(String x) => _f('openTranslatedQuestion', {'x': x});
+  String get webTranslateDocNote => _f('webTranslateDocNote');
   String get lineThickness => _f('lineThickness');
   String get goToPageMenu => _f('goToPageMenu');
   String get coverAlone => _f('coverAlone');
@@ -126,7 +129,7 @@ class S {
   String get placeTranslation => _f('placeTranslation');
   String get close => _f('close');
   String get choosePages => _f('choosePages');
-  String pagesChosen(int n) => _f('pagesChosen', {'n': n});
+  String pagesChosen(int n, [int max = 20]) => _f('pagesChosen', {'n': n, 'max': max});
   String translateFailed(Object e) => _f('translateFailed', {'e': e});
   String get unknownLanguage => _f('unknownLanguage');
   String get zoomHint => _f('zoomHint');
