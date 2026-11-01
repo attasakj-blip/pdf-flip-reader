@@ -183,6 +183,17 @@ class S {
   String get licenses => _f('licenses');
   String get zoomIn => _f('zoomIn');
   String get zoomOut => _f('zoomOut');
+  String get insertText => _f('insertText');
+  String get textHint => _f('textHint');
+  String get addText => _f('addText');
+  String get fontName => _f('fontName');
+  String get fontSize => _f('fontSize');
+  String get bold => _f('bold');
+  String get italic => _f('italic');
+  String get underline => _f('underline');
+  String get typeHere => _f('typeHere');
+  String get editText => _f('editText');
+  String stepText(String n) => _f('stepText', {'n': n});
   String get showOriginal => _f('showOriginal');
   String get showTranslated => _f('showTranslated');
   String get viewingOriginal => _f('viewingOriginal');

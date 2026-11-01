@@ -12,6 +12,7 @@ import 'ambient.dart';
 import 'book_painter.dart';
 import 'desktop.dart';
 import 'edge_menu.dart';
+import 'text_box.dart';
 import 'edit_tools.dart';
 import 'flip_sounds.dart';
 import 'goto_dialog.dart';
@@ -42,7 +43,7 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-enum _Tool { none, sign, area, translate, markup, ocr }
+enum _Tool { none, sign, area, translate, markup, ocr, text }
 
 /// One edit that can be undone: the working copy after it, what it was
 /// (shown in the undo list), the page to go back to and when it happened.
@@ -93,6 +94,9 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   bool _controlsVisible = true;
   _Tool _tool = _Tool.none;
   final _marks = <Mark>[];
+  // Text boxes being placed, and the style the next one starts with.
+  final _notes = <TextNote>[];
+  final _noteStyle = TextNote(text: '', flags: [], font: '', size: 16, color: const Color(0xFF111111));
   // Page shapes (height / width) of pages marked earlier, for saving marks
   // made on pages that have since been scrolled away from.
   final _markAspects = <int, double>{};
@@ -132,6 +136,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    if (Desktop.active) TextFonts.list(); // ask Windows for its fonts early: it takes a moment
     _anim = AnimationController(vsync: this)
       ..addListener(_tickAnim)
       ..addStatusListener((s) {
@@ -454,6 +459,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
             if (_editAllowed()) setState(() => _tool = _Tool.markup);
           }),
         ),
+        EdgeMenuItem(icon: Icons.text_fields, label: s.insertText, onTap: _fromEdge(_startText)),
         EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
         EdgeMenuItem(
           icon: Icons.crop,
@@ -500,12 +506,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         on: !_twoPage,
         onTap: () => _setMode(twoPage: false),
       ),
-      EdgeMenuItem(
-        icon: Icons.menu_book,
-        label: s.twoPage,
-        on: _twoPage,
-        onTap: () => _setMode(twoPage: true),
-      ),
+      EdgeMenuItem(icon: Icons.menu_book, label: s.twoPage, on: _twoPage, onTap: () => _setMode(twoPage: true)),
       // Only means something with two pages, so it is shown only then.
       if (_twoPage)
         EdgeMenuItem(
@@ -744,7 +745,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     if (e is! PointerScrollEvent || !_idle) return;
     // Signing and marking up can go on across pages: the wheel moves to
     // another page while the tool stays out.
-    final annotating = _tool == _Tool.sign || _tool == _Tool.markup;
+    final annotating = _tool == _Tool.sign || _tool == _Tool.markup || _tool == _Tool.text;
     if (_tool != _Tool.none && !annotating) return;
     if (HardwareKeyboard.instance.isControlPressed) return;
     final dy = e.scrollDelta.dy;
@@ -869,6 +870,66 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     final tmp = (await getTemporaryDirectory()).path;
     PdfEditor.cacheDir ??= tmp;
     return '$tmp/edit_${DateTime.now().microsecondsSinceEpoch}.pdf';
+  }
+
+  /// Opens the text window; the new box then goes on the page in view.
+  Future<void> _startText() async {
+    if (!_editAllowed()) return;
+    _resetZoom();
+    await _addText();
+  }
+
+  Future<void> _addText() async {
+    final n = await showTextEditor(context, style: _noteStyle);
+    if (n == null || !mounted) return;
+    _rememberStyle(n);
+    final slots = _slots;
+    if (slots.isEmpty) return;
+    final mid = Offset(_bookSize.width / 2, _bookSize.height / 2);
+    final slot = slots.firstWhere((sl) => sl.rect.contains(mid), orElse: () => slots.first);
+    // Placed over the middle of the page, then dragged where it should go.
+    final onPage = _notes.where((o) => o.page == slot.page).length;
+    n
+      ..page = slot.page
+      ..aspect = slot.rect.height / slot.rect.width
+      ..width = 0.5
+      ..left = 0.25
+      ..top = (0.35 + 0.06 * onPage).clamp(0.0, 0.85);
+    setState(() {
+      _notes.add(n);
+      _tool = _Tool.text;
+    });
+  }
+
+  Future<void> _editNote(TextNote n) async {
+    final r = await showTextEditor(context, note: n, style: _noteStyle);
+    if (r == null || !mounted) return;
+    _rememberStyle(r);
+    setState(() {});
+  }
+
+  void _rememberStyle(TextNote n) {
+    _noteStyle
+      ..font = n.font
+      ..size = n.size
+      ..color = n.color;
+  }
+
+  Future<void> _saveText() async {
+    final notes = List<TextNote>.of(_notes);
+    setState(() {
+      _tool = _Tool.none;
+      _notes.clear();
+    });
+    if (notes.isEmpty) return;
+    final stamps = await textStamps(notes);
+    if (!mounted) return;
+    await _runEdit(
+      keepPage: notes.first.page,
+      suffix: 'text',
+      label: S.of(context).stepText(_pageList(notes.map((n) => n.page))),
+      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps),
+    );
   }
 
   Future<void> _startSigning() async {
@@ -1483,6 +1544,20 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                     }),
                   ),
                 ),
+              if (_tool == _Tool.text)
+                Positioned.fill(
+                  child: TextLayer(
+                    slots: _zoomedSlots,
+                    notes: _notes,
+                    onAdd: _addText,
+                    onEdit: _editNote,
+                    onDone: _saveText,
+                    onCancel: () => setState(() {
+                      _tool = _Tool.none;
+                      _notes.clear();
+                    }),
+                  ),
+                ),
               if (_tool == _Tool.translate)
                 Positioned.fill(
                   child: SelectArea(
@@ -1632,6 +1707,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'copyPage') _copyPage();
                 if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
                 if (v == 'markup' && _editAllowed()) setState(() => _tool = _Tool.markup);
+                if (v == 'text') _startText();
                 if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
                 if (v == 'undoList') _showUndoList();
                 if (v == 'original') _toggleOriginal();
@@ -1659,6 +1735,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
                 _iconItem('sign', Icons.draw, S.of(context).signDocument),
                 _iconItem('markup', Icons.format_color_text, S.of(context).markup),
+                _iconItem('text', Icons.text_fields, S.of(context).insertText),
                 _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
                 _iconItem('copyArea', Icons.crop, S.of(context).copyAreaImage),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
