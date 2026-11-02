@@ -9,6 +9,7 @@ import 'desktop.dart';
 import 'flip_sounds.dart';
 import 'l10n.dart';
 import 'native_files.dart';
+import 'purchases.dart';
 import 'reader_screen.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
@@ -117,6 +118,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('Pagelume'),
         actions: [
+          if (Purchases.instance.selling)
+            IconButton(
+              tooltip: s.goldMenu,
+              icon: const Icon(Icons.workspace_premium, color: Color(0xFFFFC94D)),
+              onPressed: () => showPaywall(context),
+            ),
           IconButton(
             tooltip: s.language,
             icon: const Icon(Icons.translate),

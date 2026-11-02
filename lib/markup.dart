@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'edit_tools.dart' show PageSlot, ToolBar;
 import 'l10n.dart';
 import 'pdf_edit.dart' show PageChar, PageRect, Stamp;
+import 'purchases.dart';
 import 'text_box.dart' show TextNote, noteRect, paintNotes;
 
 enum MarkTool { pen, highlighter, textHighlight, line, rect, circle, ellipse }
@@ -574,7 +575,14 @@ class _MarkupLayerState extends State<MarkupLayer> {
     });
   }
 
-  void _setTool(MarkTool t) {
+  // Shapes come with Pagelume Gold; a free try covers one markup session.
+  bool _shapesOk = false;
+
+  Future<void> _setTool(MarkTool t) async {
+    if (t.index >= MarkTool.line.index && !_shapesOk) {
+      if (!await requireGold(context, GoldFeature.shapes) || !mounted) return;
+      _shapesOk = true;
+    }
     setState(() {
       _tool = t;
       _erasing = false;

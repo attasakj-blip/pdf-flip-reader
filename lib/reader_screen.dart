@@ -27,6 +27,7 @@ import 'page_clipboard.dart';
 import 'page_scroller.dart';
 import 'pdf_edit.dart';
 import 'print_flow.dart';
+import 'purchases.dart';
 import 'save_flow.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
@@ -493,11 +494,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
           label: s.translateDoc.replaceAll('…', ''),
           onTap: _fromEdge(_translateDoc),
         ),
-      EdgeMenuItem(
-        icon: Icons.document_scanner,
-        label: s.ocrArea,
-        onTap: _fromEdge(() => setState(() => _tool = _Tool.ocr)),
-      ),
+      EdgeMenuItem(icon: Icons.document_scanner, label: s.ocrArea, onTap: _fromEdge(_startOcr)),
       if (_beforeTranslation != null)
         EdgeMenuItem(icon: Icons.compare, label: s.showOriginal, on: _showOriginal, onTap: _fromEdge(_toggleOriginal)),
       EdgeMenuItem(
@@ -714,12 +711,19 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
             ListTile(
               leading: Icon(i == current ? Icons.radio_button_checked : Icons.radio_button_unchecked),
               title: Text(i < 0 ? s.flipNone : names[i]),
+              // Five of the eight looks come with Pagelume Gold.
+              trailing: i < 0 || Purchases.instance.flipStyleOk(i)
+                  ? null
+                  : const Icon(Icons.workspace_premium, color: Color(0xFFFFC94D), size: 20),
               onTap: () => Navigator.pop(ctx, i),
             ),
         ],
       ),
     );
     if (picked == null || !mounted) return;
+    if (picked >= 0 && !Purchases.instance.flipStyleOk(picked)) {
+      if (!await requireGold(context, GoldFeature.flipStyle) || !mounted) return;
+    }
     setState(() {
       _settings.flipAnimation = picked >= 0;
       if (picked >= 0) _settings.flipStyle = picked;
@@ -894,6 +898,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   /// Opens the markup tools, with the newest saved marks and text boxes.
+  Future<void> _startOcr() async {
+    if (!await requireGold(context, GoldFeature.ocr) || !mounted) return;
+    setState(() => _tool = _Tool.ocr);
+  }
+
   Future<void> _openMarkup({bool erase = false}) async {
     if (!_editAllowed()) return;
     await _pullBack();
@@ -950,7 +959,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   /// Opens the text tool with the newest saved text boxes, or the text
   /// window for a new box when there are none.
   Future<void> _startText() async {
-    if (!_editAllowed()) return;
+    if (!_editAllowed() || !await requireGold(context, GoldFeature.text) || !mounted) return;
     _resetZoom();
     await _pullBack();
     if (!mounted) return;
@@ -1032,7 +1041,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _startSigning() async {
-    if (!_editAllowed()) return;
+    if (!_editAllowed() || !await requireGold(context, GoldFeature.sign) || !mounted) return;
     final sig = await showSignaturePad(
       context,
       color: Color(_settings.signColor),
@@ -1069,7 +1078,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _askDelete() async {
-    if (!_editAllowed()) return;
+    if (!_editAllowed() || !await requireGold(context, GoldFeature.deletePages) || !mounted) return;
     _resetZoom();
     final s = S.of(context);
     final pages = _slots.map((e) => e.page).toList();
@@ -1392,6 +1401,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       await openGoogleTranslateDocs(context);
       return;
     }
+    if (!await requireGold(context, GoldFeature.translateDoc) || !mounted) return;
     _resetZoom();
     final total = _cache!.pageCount;
     final visible = _slots.map((e) => e.page).toList();
@@ -1453,7 +1463,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
           SnackBar(
             content: Text(s.scannedOffer),
             duration: const Duration(seconds: 6),
-            action: SnackBarAction(label: s.ocrButton, onPressed: () => setState(() => _tool = _Tool.ocr)),
+            action: SnackBarAction(label: s.ocrButton, onPressed: _startOcr),
           ),
         );
       }
@@ -1815,10 +1825,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
                 if (v == 'markup') _openMarkup();
                 if (v == 'text') _startText();
-                if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
+                if (v == 'ocr' && _idle) _startOcr();
                 if (v == 'undoList') _showUndoList();
                 if (v == 'original') _toggleOriginal();
                 if (v == 'flip') _chooseFlipStyle();
+                if (v == 'gold') showPaywall(context);
                 if (v == 'licenses') showLicensePage(context: context, applicationName: 'Pagelume');
                 if (v == 'delete') _askDelete();
                 if (v == 'translateArea' && _idle) setState(() => _tool = _Tool.translate);
@@ -1881,6 +1892,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 PopupMenuItem(value: 'sound', child: Text('${S.of(context).flipSoundMenu}…')),
                 PopupMenuItem(value: 'ambient', child: Text('${S.of(context).ambientMenu}…')),
                 PopupMenuItem(value: 'lang', child: Text('${S.of(context).language}…')),
+                if (Purchases.instance.selling) PopupMenuItem(value: 'gold', child: Text(S.of(context).goldMenu)),
                 PopupMenuItem(value: 'licenses', child: Text(S.of(context).licenses)),
                 const PopupMenuDivider(),
                 PopupMenuItem(value: 'files', child: Text(S.of(context).otherFile)),

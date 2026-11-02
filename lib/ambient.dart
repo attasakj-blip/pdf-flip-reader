@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'ambient_synth.dart';
 import 'l10n.dart';
+import 'purchases.dart';
 import 'settings.dart';
 
 /// Plays the chosen background sound on a loop while a book is open.
@@ -110,7 +111,12 @@ Future<void> showAmbientSettings(BuildContext context, Settings settings, Ambien
                 Flexible(
                   child: RadioGroup<int>(
                     groupValue: settings.ambientIndex,
-                    onChanged: (v) => player.select(v ?? -1),
+                    onChanged: (v) async {
+                      final i = v ?? -1;
+                      // Seven of the ten sounds come with Pagelume Gold.
+                      if (!Purchases.instance.ambientOk(i) && !await requireGold(ctx, GoldFeature.ambient)) return;
+                      player.select(i);
+                    },
                     child: ListView(
                       shrinkWrap: true,
                       children: [
@@ -119,7 +125,9 @@ Future<void> showAmbientSettings(BuildContext context, Settings settings, Ambien
                           RadioListTile<int>(
                             value: i,
                             title: Text('${i + 1}. ${s.ambientName(i)}'),
-                            secondary: Icon(_icon(i), size: 20),
+                            secondary: Purchases.instance.ambientOk(i)
+                                ? Icon(_icon(i), size: 20)
+                                : const Icon(Icons.workspace_premium, color: Color(0xFFFFC94D), size: 20),
                           ),
                       ],
                     ),

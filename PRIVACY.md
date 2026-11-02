@@ -21,6 +21,9 @@ Ads in the app are limited to content suitable for general audiences. How Google
 
 Where required by law (for example in the European Economic Area and the United Kingdom), the app asks for your consent before personalised ads are shown.
 
+## Purchases
+- Pagelume Gold and Pagelume Clear are bought through Google Play. Google handles the payment; the app never sees your card or bank details. The app only asks Google Play which of these items your Google account owns and remembers the answer on your phone.
+
 ## Children
 The app is not directed at children under 13, and I do not knowingly collect personal information from children.
 
@@ -42,5 +45,6 @@ Questions about this policy: attasak.jaree@gmail.com
 - การแปลภาษาทำในเครื่องด้วย Google ML Kit ข้อความที่แปลไม่ถูกส่งออกไปที่ใด ครั้งแรกของแต่ละภาษาแอปจะโหลดชุดภาษา (ประมาณ 30 MB) จากเซิร์ฟเวอร์ของ Google
 - ลายเซ็น ไฟล์ที่แก้ไข และรูปที่คัดลอก อยู่ในเครื่องของคุณ ในตำแหน่งที่คุณเลือกเท่านั้น
 - แอปแสดงโฆษณาแบนเนอร์ที่หน้าเลือกไฟล์ผ่าน Google AdMob ซึ่งอาจเก็บข้อมูลจากอุปกรณ์ เช่น รหัสโฆษณา ตำแหน่งโดยประมาณจาก IP และข้อมูลการดูหรือคลิกโฆษณา ตามนโยบายของ Google (https://policies.google.com/privacy) โฆษณาจำกัดเฉพาะเนื้อหาสำหรับบุคคลทั่วไป
+- Pagelume Gold และ Pagelume Clear ซื้อผ่าน Google Play ซึ่งเป็นผู้จัดการการชำระเงิน แอปไม่เห็นข้อมูลบัตรหรือบัญชีธนาคารของคุณ แอปเพียงถาม Google Play ว่าบัญชีของคุณเป็นเจ้าของรายการใด และจำคำตอบไว้ในเครื่อง
 - แอปนี้ไม่ได้ออกแบบมาสำหรับเด็กอายุต่ำกว่า 13 ปี
 - ติดต่อ: attasak.jaree@gmail.com

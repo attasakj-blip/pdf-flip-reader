@@ -40,6 +40,22 @@ class S {
     return s;
   }
 
+  // Pagelume Gold / Clear (purchases.dart).
+  String get goldLocked => _f('goldLocked');
+  String get goldPitch => _f('goldPitch');
+  String get goldFeatures => _f('goldFeatures');
+  String goldTryLeft(int n) => _f('goldTryLeft', {'n': n});
+  String buyGold(String price) => _f('buyGold', {'price': price});
+  String buyClear(String price) => _f('buyClear', {'price': price});
+  String get restorePurchases => _f('restorePurchases');
+  String get restoredNone => _f('restoredNone');
+  String get storeUnavailable => _f('storeUnavailable');
+  String get purchasePending => _f('purchasePending');
+  String get thanksGold => _f('thanksGold');
+  String get thanksClear => _f('thanksClear');
+  String get goldOwned => _f('goldOwned');
+  String get goldMenu => _f('goldMenu');
+
   String get pickPdf => _f('pickPdf');
   String get pickHint => _f('pickHint');
   String get recent => _f('recent');

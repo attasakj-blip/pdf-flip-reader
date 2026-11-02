@@ -7,14 +7,20 @@ import 'ads.dart';
 import 'flip_sounds.dart';
 import 'l10n.dart';
 import 'library_screen.dart';
+import 'purchases.dart';
 import 'settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _addLicenses();
   final settings = await Settings.load();
+  final purchases = await Purchases.load();
+  // A look or sound chosen while everything was free stays only with Gold.
+  if (!purchases.flipStyleOk(settings.flipStyle)) settings.flipStyle = 0;
+  if (!purchases.ambientOk(settings.ambientIndex)) settings.ambientIndex = -1;
   runApp(PdfFlipReaderApp(settings: settings, sounds: FlipSounds(settings)));
   initAds();
+  purchases.start();
 }
 
 class PdfFlipReaderApp extends StatelessWidget {

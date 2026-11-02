@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import 'purchases.dart';
+
 /// AdMob ids. The Play Store build (`--dart-define=REAL_ADS=true`) shows real
 /// ads from the Pagelume banner unit. The APKs for installing by hand use
 /// Google's public test unit, so the owner's own phone never shows (or
@@ -95,9 +97,13 @@ class _BannerSlotState extends State<BannerSlot> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: Purchases.instance, builder: (context, _) => _banner());
+
+  Widget _banner() {
     final ad = _ad;
-    if (ad == null || !_loaded) return const SizedBox.shrink();
+    // Pagelume Clear or Gold: no ads.
+    if (ad == null || !_loaded || Purchases.instance.adsOff) return const SizedBox.shrink();
     return SafeArea(
       top: false,
       child: SizedBox(
