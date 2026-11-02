@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'edit_tools.dart' show PageSlot, ToolBar;
 import 'l10n.dart';
 import 'pdf_edit.dart' show PageChar, PageRect, Stamp;
+import 'text_box.dart' show TextNote, noteRect, paintNotes;
 
 enum MarkTool { pen, highlighter, textHighlight, line, rect, circle, ellipse }
 
@@ -314,7 +315,12 @@ class MarkupLayer extends StatefulWidget {
     this.pageChars,
     this.erasing = false,
     this.canFinishEmpty = false,
+    this.notes,
   });
+
+  /// Text boxes taken back from saved steps: shown, and the eraser removes
+  /// the ones it touches.
+  final List<TextNote>? notes;
 
   /// Done stays available with no marks left (they were all erased).
   final bool canFinishEmpty;
@@ -561,6 +567,10 @@ class _MarkupLayerState extends State<MarkupLayer> {
       _eraserAt = p;
       widget.marks.removeWhere(hit.contains);
       if (hit.contains(_chosen)) _chosen = null;
+      widget.notes?.removeWhere((n) {
+        final s = _slotOfPage(n.page);
+        return s != null && noteRect(n, s.rect).inflate(r).contains(p);
+      });
     });
   }
 
@@ -690,6 +700,7 @@ class _MarkupLayerState extends State<MarkupLayer> {
                 painter: _MarksPainter(
                   widget.marks,
                   widget.slots,
+                  notes: widget.notes ?? const [],
                   chosen: _chosen,
                   grips: _chosen == null || _slotOfPage(_chosen!.page) == null
                       ? const []
@@ -708,7 +719,9 @@ class _MarkupLayerState extends State<MarkupLayer> {
             hint: s.markHint,
             confirm: s.done,
             onCancel: widget.onCancel,
-            onConfirm: widget.marks.isEmpty && !widget.canFinishEmpty ? null : widget.onDone,
+            onConfirm: widget.marks.isEmpty && (widget.notes?.isEmpty ?? true) && !widget.canFinishEmpty
+                ? null
+                : widget.onDone,
           ),
         ),
         Positioned(
@@ -843,9 +856,13 @@ class _OvalIcon extends StatelessWidget {
   );
 }
 
+/// Shows [marks] without letting them be changed (under the text tool).
+CustomPainter marksPainter(List<Mark> marks, List<PageSlot> slots) => _MarksPainter(marks, slots);
+
 class _MarksPainter extends CustomPainter {
-  _MarksPainter(this.marks, this.slots, {this.chosen, this.grips = const [], this.eraser});
+  _MarksPainter(this.marks, this.slots, {this.notes = const [], this.chosen, this.grips = const [], this.eraser});
   final List<Mark> marks;
+  final List<TextNote> notes;
   final List<PageSlot> slots;
   final Mark? chosen;
   final List<Offset> grips;
@@ -856,6 +873,7 @@ class _MarksPainter extends CustomPainter {
     for (final s in slots) {
       canvas.save();
       canvas.clipRect(s.rect);
+      paintNotes(canvas, notes, s.page, s.rect);
       for (final m in marks) {
         if (m.page == s.page) m.paint(canvas, s.rect);
       }

@@ -73,6 +73,29 @@ class TextNote {
         ..layout(maxWidth: math.max(1, width * pageWidth));
 }
 
+/// Where [n] sits over a page drawn in [page].
+Rect noteRect(TextNote n, Rect page) {
+  final tp = n.layout(page.width);
+  final r = Rect.fromLTWH(
+    page.left + n.left * page.width,
+    page.top + n.top * page.height,
+    n.width * page.width,
+    tp.height,
+  );
+  tp.dispose();
+  return r;
+}
+
+/// Draws the boxes of [notes] that are on [page] (shown in [rect]).
+void paintNotes(Canvas canvas, List<TextNote> notes, int page, Rect rect) {
+  for (final n in notes) {
+    if (n.page != page) continue;
+    final tp = n.layout(rect.width);
+    tp.paint(canvas, Offset(rect.left + n.left * rect.width, rect.top + n.top * rect.height));
+    tp.dispose();
+  }
+}
+
 /// [text] as spans that follow the per-character [flags].
 TextSpan styledSpan(String text, List<int> flags, TextStyle base) {
   final runs = <TextSpan>[];
@@ -384,10 +407,7 @@ class _TextEditorState extends State<_TextEditor> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
-        FilledButton(
-          onPressed: _ctl.text.trim().isEmpty ? null : _ok,
-          child: Text(widget.note == null ? s.placeOnPage : s.done),
-        ),
+        FilledButton(onPressed: _ctl.text.trim().isEmpty ? null : _ok, child: Text(s.done)),
       ],
     );
   }
@@ -434,6 +454,20 @@ class TextLayer extends StatefulWidget {
 
 class _TextLayerState extends State<TextLayer> {
   TextNote? _chosen;
+
+  @override
+  void initState() {
+    super.initState();
+    _chosen = widget.placing;
+  }
+
+  @override
+  void didUpdateWidget(TextLayer old) {
+    super.didUpdateWidget(old);
+    // A new box starts chosen, with its handles showing.
+    if (widget.placing != null && !identical(widget.placing, old.placing)) _chosen = widget.placing;
+  }
+
   static const _handle = 26.0;
 
   PageSlot? _slotOf(TextNote n) {
@@ -605,41 +639,21 @@ class _TextLayerState extends State<TextLayer> {
           top: 0,
           left: 0,
           right: 0,
-          child: Material(
-            color: Colors.black.withValues(alpha: 0.75),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: widget.placing != null
-                          ? Text(
-                              s.tapToPlace,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.amberAccent,
-                              ),
-                            )
-                          : Text(widget.hint ?? s.textHint, style: const TextStyle(fontSize: 13)),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(s.addText),
-                      onPressed: widget.onAdd,
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton(onPressed: widget.onCancel, child: Text(s.cancel)),
-                    FilledButton(
-                      onPressed: widget.notes.isEmpty && !widget.canFinishEmpty ? null : widget.onDone,
-                      child: Text(s.done),
-                    ),
-                  ],
-                ),
+          child: ToolBar(
+            hint: widget.placing != null ? s.tapToPlace : (widget.hint ?? s.textHint),
+            hintStyle: widget.placing != null
+                ? const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.amberAccent)
+                : const TextStyle(fontSize: 13),
+            confirm: s.done,
+            onCancel: widget.onCancel,
+            onConfirm: widget.notes.isEmpty && !widget.canFinishEmpty ? null : widget.onDone,
+            extra: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(s.addText),
+                onPressed: widget.onAdd,
               ),
-            ),
+            ],
           ),
         ),
       ],

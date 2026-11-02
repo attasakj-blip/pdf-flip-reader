@@ -162,7 +162,7 @@ FLIP = {
         'Sayfaya yerleştir', 'ضع على الصفحة', 'पेज पर रखें', 'পৃষ্ঠায় বসান', 'Tempatkan di halaman',
         'Letak di halaman', 'Đặt lên trang', 'Ilagay sa pahina'),
     'tapToPlace': row(
-        'Tap where the text should go', 'แตะตำแหน่งที่ต้องการวางข้อความ', '点按要放置文字的位置', '點按要放置文字的位置',
+        'Tap the page or drag the box to place the text', 'แตะบนหน้า หรือลากกล่องข้อความไปวางตรงที่ต้องการ', '点按要放置文字的位置', '點按要放置文字的位置',
         'テキストを置く場所をタップ', '텍스트를 놓을 위치를 탭하세요', 'Touchez l’endroit où placer le texte',
         'Tippen Sie, wo der Text hin soll', 'Tocca dove mettere il testo', 'Toca donde va el texto',
         'Toque onde o texto deve ficar', 'Коснитесь места для текста', 'Торкніться місця для тексту',

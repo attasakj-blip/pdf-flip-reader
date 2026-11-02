@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pdf_flip_reader/edit_tools.dart' show ToolBar;
 import 'package:pdf_flip_reader/l10n.dart';
 import 'package:pdf_flip_reader/print_flow.dart';
 import 'package:pdf_flip_reader/text_box.dart';
@@ -135,7 +136,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.format_bold)); // bold for what comes next
     await tester.pump();
     expect(find.byType(AlertDialog), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Place on page'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
     expect(got, isNotNull);
     expect(got!.text, 'สวัสดี hello');
@@ -154,8 +155,12 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('a new box goes where the page is tapped', (tester) async {
-    final n = note();
+  testWidgets('a new box goes where the page is tapped, on a phone too', (tester) async {
+    // A phone-sized screen: the top bar must not cover the page.
+    tester.view.physicalSize = const Size(1080, 2220);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final n = note(text: 'A longer line of text that wraps');
     final notes = [n];
     TextNote? placing = n;
     await tester.pumpWidget(
@@ -164,7 +169,7 @@ void main() {
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) => TextLayer(
-              slots: const [(page: 0, rect: Rect.fromLTWH(100, 80, 400, 560))],
+              slots: const [(page: 0, rect: Rect.fromLTWH(20, 120, 320, 450))],
               notes: notes,
               placing: placing,
               onPlaced: () => setState(() => placing = null),
@@ -178,14 +183,16 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Tap where the text should go'), findsOneWidget);
-    // Tap near the bottom right of the page.
-    await tester.tapAt(const Offset(400, 500));
+    expect(find.text('Tap the page or drag the box to place the text'), findsOneWidget);
+    // The bar stays a short strip at the top.
+    expect(tester.getSize(find.byType(ToolBar)).height, lessThan(200));
+    // Tap on the left of the page, below the bar.
+    await tester.tapAt(const Offset(100, 300));
     await tester.pump(const Duration(milliseconds: 400));
     expect(placing, isNull);
-    expect(n.left + n.width / 2, closeTo(0.75, 0.01));
-    expect(n.top, closeTo(0.75, 0.01));
-    expect(find.text('Tap where the text should go'), findsNothing);
+    expect(n.left + n.width / 2, closeTo(0.25, 0.01));
+    expect(n.top, closeTo(0.4, 0.01));
+    expect(find.text('Tap the page or drag the box to place the text'), findsNothing);
     await tester.pump(const Duration(seconds: 2));
   });
 

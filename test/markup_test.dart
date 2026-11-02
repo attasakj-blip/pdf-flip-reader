@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf_flip_reader/l10n.dart';
 import 'package:pdf_flip_reader/markup.dart';
 import 'package:pdf_flip_reader/pdf_edit.dart';
+import 'package:pdf_flip_reader/text_box.dart';
 import 'package:pdfrx_engine/pdfrx_engine.dart';
 
 void main() {
@@ -110,6 +111,65 @@ void main() {
     await f2.up();
     expect(zoomed, greaterThan(1.5));
     expect(marks, hasLength(1));
+  });
+
+  testWidgets('the eraser also takes out saved text boxes it touches', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final notes = [
+      TextNote(
+        text: 'Hello',
+        flags: [0, 0, 0, 0, 0],
+        font: 'Sarabun',
+        size: 16,
+        color: Colors.black,
+        left: 0.1,
+        top: 0.5,
+        width: 0.4,
+      ),
+      TextNote(
+        text: 'Keep',
+        flags: [0, 0, 0, 0],
+        font: 'Sarabun',
+        size: 16,
+        color: Colors.black,
+        left: 0.1,
+        top: 0.8,
+        width: 0.4,
+      ),
+    ];
+    var done = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: const [SDelegate()],
+        home: Scaffold(
+          body: MarkupLayer(
+            slots: const [(page: 0, rect: Rect.fromLTWH(200, 0, 400, 600))],
+            marks: <Mark>[],
+            notes: notes,
+            erasing: true,
+            canFinishEmpty: true,
+            zoom: 1,
+            pan: Offset.zero,
+            onZoom: (_, _) {},
+            onDone: () => done++,
+            onCancel: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Rub across the first box (page x 240..360, y 300..).
+    final g = await tester.startGesture(const Offset(230, 305));
+    for (var x = 240.0; x <= 380; x += 20) {
+      await g.moveTo(Offset(x, 305));
+      await tester.pump();
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(notes.map((n) => n.text), ['Keep']);
+    await tester.tap(find.text('Done'));
+    expect(done, 1);
   });
 
   testWidgets('a drawn box can be moved and resized, and the eraser takes marks out', (tester) async {

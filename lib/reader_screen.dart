@@ -100,12 +100,10 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   bool _markErase = false;
   // Marks written by each markup step (by the step's copy), so that the
   // newest markup steps can be taken back for erasing, moving and resizing.
-  final _stepMarks = <String, ({List<Mark> marks, Map<int, double> aspects})>{};
+  final _stepObjs = <String, ({List<Mark> marks, Map<int, double> aspects, List<TextNote> notes})>{};
   // Markup steps taken back while the markup tools are open; Cancel puts
   // them back as they were.
   final _pulled = <_Step>[];
-  // Text boxes written by each text step, to take them back the same way.
-  final _stepNotes = <String, List<TextNote>>{};
   // A new text box waiting for a tap that says where it goes.
   TextNote? _placing;
   // Text boxes being placed, and the style the next one starts with.
@@ -839,70 +837,83 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     });
   }
 
-  Future<void> _saveMarks() async {
+  /// Writes the marks and text boxes on the page into the book as one step.
+  /// Steps taken back for editing are replaced by it.
+  Future<void> _saveObjects() async {
     final aspects = {..._markAspects, for (final s in _slots) s.page: s.rect.height / s.rect.width};
     _markAspects.clear();
     final marks = List<Mark>.of(_marks);
+    final notes = List<TextNote>.of(_notes);
     final pulled = List<_Step>.of(_pulled);
     _pulled.clear();
     setState(() {
       _tool = _Tool.none;
       _marks.clear();
+      _notes.clear();
+      _placing = null;
     });
-    // The steps taken back are replaced by this one.
     for (final h in pulled) {
       File(h.path).delete().ignore();
-      _stepMarks.remove(h.path);
+      _stepObjs.remove(h.path);
     }
-    if (marks.isEmpty) {
+    if (marks.isEmpty && notes.isEmpty) {
       // Everything was erased: the book is as it was before those steps.
       if (pulled.isNotEmpty) _toast(S.of(context).undoneSteps(pulled.length));
       return;
     }
+    final stamps = [...await markStamps(marks, aspects), ...await textStamps(notes)];
+    if (!mounted) return;
+    final pages = [...marks.map((m) => m.page), ...notes.map((n) => n.page)];
     final path = await _runEdit(
-      keepPage: marks.first.page,
-      suffix: 'marked',
-      label: S.of(context).stepMarkup(_pageList(marks.map((m) => m.page))),
-      edit: (dest) async => PdfEditor.stampAll(_path, dest, await markStamps(marks, aspects)),
+      keepPage: pages.first,
+      suffix: marks.isEmpty ? 'text' : 'marked',
+      label: marks.isEmpty ? S.of(context).stepText(_pageList(pages)) : S.of(context).stepMarkup(_pageList(pages)),
+      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps),
     );
-    if (path != null) _stepMarks[path] = (marks: marks, aspects: aspects);
+    if (path != null) _stepObjs[path] = (marks: marks, aspects: aspects, notes: notes);
   }
 
-  /// Opens the markup tools. The newest markup steps, if nothing else was
-  /// done after them, come back as marks that can still be erased, moved
-  /// and resized; Done writes them again as one step.
-  Future<void> _openMarkup({bool erase = false}) async {
-    if (!_editAllowed()) return;
+  /// Takes back the newest steps made of marks and text boxes, if nothing
+  /// else was done after them, so they can be erased, moved and changed.
+  Future<void> _pullBack() async {
     final back = <_Step>[];
-    while (_history.isNotEmpty && _stepMarks.containsKey(_history.last.path)) {
+    while (_history.isNotEmpty && _stepObjs.containsKey(_history.last.path)) {
       back.insert(0, _history.removeLast());
     }
-    if (back.isNotEmpty) {
-      for (final h in back) {
-        final m = _stepMarks[h.path]!;
-        _marks.addAll(m.marks.map((k) => k.copy()));
-        _markAspects.addAll(m.aspects);
-      }
-      _pulled
-        ..clear()
-        ..addAll(back);
-      await _reload(_firstVisiblePage);
-      if (!mounted) return;
+    if (back.isEmpty) return;
+    for (final h in back) {
+      final o = _stepObjs[h.path]!;
+      _marks.addAll(o.marks.map((k) => k.copy()));
+      _markAspects.addAll(o.aspects);
+      _notes.addAll(o.notes.map((n) => n.copy()));
     }
+    _pulled
+      ..clear()
+      ..addAll(back);
+    await _reload(_firstVisiblePage);
+  }
+
+  /// Opens the markup tools, with the newest saved marks and text boxes.
+  Future<void> _openMarkup({bool erase = false}) async {
+    if (!_editAllowed()) return;
+    await _pullBack();
+    if (!mounted) return;
     setState(() {
       _markErase = erase;
       _tool = _Tool.markup;
     });
   }
 
-  /// Leaves the markup tools without changes: steps taken back return.
-  Future<void> _cancelMarkup() async {
+  /// Leaves the markup or text tool without changes: steps taken back return.
+  Future<void> _cancelObjects() async {
     final back = List<_Step>.of(_pulled);
     _pulled.clear();
     _markAspects.clear();
     setState(() {
       _tool = _Tool.none;
       _marks.clear();
+      _notes.clear();
+      _placing = null;
     });
     if (back.isEmpty) return;
     _history.addAll(back);
@@ -936,51 +947,27 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     return '$tmp/edit_${DateTime.now().microsecondsSinceEpoch}.pdf';
   }
 
-  /// Opens the text window; the new box then goes where the user taps.
-  /// The newest text steps, if nothing else was done after them, come back
-  /// as boxes that can still be moved and changed.
+  /// Opens the text tool with the newest saved text boxes, or the text
+  /// window for a new box when there are none.
   Future<void> _startText() async {
     if (!_editAllowed()) return;
     _resetZoom();
-    final back = <_Step>[];
-    while (_history.isNotEmpty && _stepNotes.containsKey(_history.last.path)) {
-      back.insert(0, _history.removeLast());
-    }
-    if (back.isEmpty) {
-      await _addText();
+    await _pullBack();
+    if (!mounted) return;
+    if (_notes.isEmpty) {
+      if (!await _addText() && _pulled.isNotEmpty) await _cancelObjects();
       return;
     }
-    for (final h in back) {
-      _notes.addAll(_stepNotes[h.path]!.map((n) => n.copy()));
-    }
-    _pulled
-      ..clear()
-      ..addAll(back);
-    await _reload(_firstVisiblePage);
-    if (!mounted) return;
     setState(() => _tool = _Tool.text);
   }
 
-  /// Leaves the text tool without changes: steps taken back return.
-  Future<void> _cancelText() async {
-    final back = List<_Step>.of(_pulled);
-    _pulled.clear();
-    setState(() {
-      _tool = _Tool.none;
-      _notes.clear();
-      _placing = null;
-    });
-    if (back.isEmpty) return;
-    _history.addAll(back);
-    await _reload(_firstVisiblePage);
-  }
-
-  Future<void> _addText() async {
+  /// Asks for a new box's text; false when the user backs out.
+  Future<bool> _addText() async {
     final n = await showTextEditor(context, style: _noteStyle);
-    if (n == null || !mounted) return;
+    if (n == null || !mounted) return false;
     _rememberStyle(n);
     final slots = _slots;
-    if (slots.isEmpty) return;
+    if (slots.isEmpty) return false;
     final mid = Offset(_bookSize.width / 2, _bookSize.height / 2);
     final slot = slots.firstWhere((sl) => sl.rect.contains(mid), orElse: () => slots.first);
     // Placed over the middle of the page, then dragged where it should go.
@@ -996,6 +983,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       _placing = n;
       _tool = _Tool.text;
     });
+    return true;
   }
 
   Future<void> _editNote(TextNote n) async {
@@ -1010,35 +998,6 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       ..font = n.font
       ..size = n.size
       ..color = n.color;
-  }
-
-  Future<void> _saveText() async {
-    final notes = List<TextNote>.of(_notes);
-    final pulled = List<_Step>.of(_pulled);
-    _pulled.clear();
-    setState(() {
-      _tool = _Tool.none;
-      _notes.clear();
-      _placing = null;
-    });
-    // The steps taken back are replaced by this one.
-    for (final h in pulled) {
-      File(h.path).delete().ignore();
-      _stepNotes.remove(h.path);
-    }
-    if (notes.isEmpty) {
-      if (pulled.isNotEmpty) _toast(S.of(context).undoneSteps(pulled.length));
-      return;
-    }
-    final stamps = await textStamps(notes);
-    if (!mounted) return;
-    final path = await _runEdit(
-      keepPage: notes.first.page,
-      suffix: 'text',
-      label: S.of(context).stepText(_pageList(notes.map((n) => n.page))),
-      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps),
-    );
-    if (path != null) _stepNotes[path] = notes.map((n) => n.copy()).toList();
   }
 
   /// Prints the book as it is now (with unsaved edits). Android's print
@@ -1196,8 +1155,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       File(h.path).delete().ignore();
     }
     _history.clear();
-    _stepMarks.clear();
-    _stepNotes.clear();
+    _stepObjs.clear();
     _showOriginal = false;
   }
 
@@ -1676,6 +1634,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   child: MarkupLayer(
                     slots: _zoomedSlots,
                     marks: _marks,
+                    notes: _notes,
                     pageChars: (page) => PdfEditor.pageChars(_path, page),
                     zoom: _zoom,
                     pan: _screenPan,
@@ -1683,9 +1642,13 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                     erasing: _markErase,
                     // With marks taken back, Done also works once all are erased.
                     canFinishEmpty: _pulled.isNotEmpty,
-                    onDone: _saveMarks,
-                    onCancel: _cancelMarkup,
+                    onDone: _saveObjects,
+                    onCancel: _cancelObjects,
                   ),
+                ),
+              if (_tool == _Tool.text && _marks.isNotEmpty)
+                Positioned.fill(
+                  child: IgnorePointer(child: CustomPaint(painter: marksPainter(_marks, _zoomedSlots))),
                 ),
               if (_tool == _Tool.text)
                 Positioned.fill(
@@ -1694,11 +1657,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                     notes: _notes,
                     onAdd: _addText,
                     onEdit: _editNote,
-                    onDone: _saveText,
-                    onCancel: _cancelText,
+                    onDone: _saveObjects,
+                    onCancel: _cancelObjects,
                     placing: _placing,
                     onPlaced: () => setState(() => _placing = null),
-                    hint: _pulled.isNotEmpty ? S.of(context).textBackHint : null,
+                    hint: _notes.isNotEmpty && _pulled.isNotEmpty ? S.of(context).textBackHint : null,
                     canFinishEmpty: _pulled.isNotEmpty,
                   ),
                 ),

@@ -330,30 +330,67 @@ class _PadPainter extends CustomPainter {
 /// Bar with a hint and Cancel / confirm, shown over the page while a tool is
 /// active.
 class ToolBar extends StatelessWidget {
-  const ToolBar({super.key, required this.hint, required this.confirm, required this.onCancel, this.onConfirm});
+  const ToolBar({
+    super.key,
+    required this.hint,
+    required this.confirm,
+    required this.onCancel,
+    this.onConfirm,
+    this.extra = const [],
+    this.hintStyle = const TextStyle(fontSize: 13),
+  });
 
   final String hint;
   final String confirm;
   final VoidCallback onCancel;
   final VoidCallback? onConfirm;
 
+  /// Buttons before Cancel.
+  final List<Widget> extra;
+  final TextStyle hintStyle;
+
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.black.withValues(alpha: 0.75),
-    child: SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-        child: Row(
-          children: [
-            Expanded(child: Text(hint, style: const TextStyle(fontSize: 13))),
-            TextButton(onPressed: onCancel, child: Text(S.of(context).cancel)),
-            FilledButton(onPressed: onConfirm, child: Text(confirm)),
-          ],
+  Widget build(BuildContext context) {
+    final buttons = [
+      ...extra,
+      TextButton(onPressed: onCancel, child: Text(S.of(context).cancel)),
+      FilledButton(onPressed: onConfirm, child: Text(confirm)),
+    ];
+    return Material(
+      color: Colors.black.withValues(alpha: 0.75),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // On a phone the hint gets its own line above the buttons, so
+              // it is never squeezed into a tall column over the page.
+              if (box.maxWidth < 560 + 110 * extra.length) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(hint, style: hintStyle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Wrap(alignment: WrapAlignment.end, spacing: 8, children: buttons),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(
+                    child: Text(hint, style: hintStyle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ),
+                  for (final b in buttons) ...[const SizedBox(width: 8), b],
+                ],
+              );
+            },
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Lets the user move and resize the signature over the visible pages.
