@@ -67,5 +67,8 @@ jobs:
             ls -l pagelume.aab
             files+=(pagelume.aab)
           fi
-          gh release create latest "${files[@]}" --title "Pagelume build ${GITHUB_RUN_NUMBER}" \
+          gh release create latest "${files[@]}" --target "$GITHUB_SHA" --title "Pagelume build ${GITHUB_RUN_NUMBER}" \
             --notes "Download pagelume-arm64.apk for most phones, or pagelume-armv7.apk for very old phones. pagelume.aab is for uploading to Google Play." --latest
+          # A release left as a draft makes the "latest" link show an empty
+          # page (seen on build 26): make sure it is published.
+          gh release edit latest --draft=false --latest

@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Tesseract4Android (text from scanned pages) is published here.
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

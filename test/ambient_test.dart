@@ -31,17 +31,17 @@ double _selfSimilarity(List<double> e) {
   return best;
 }
 
-const _rhythmic = {10, 19, 20, 21, 24, 25, 26, 27};
+const _rhythmic = {0, 1, 5, 7, 8, 9}; // train, waves, chords, bowl, tunes
 
 void main() {
-  test('all 30 background sounds are quiet, clean, 30-second seamless loops', () {
+  test('all background sounds are quiet, clean, seamless loops', () {
     final out = Platform.environment['AMBIENT_OUT'];
     const sr = 22050;
     for (var id = 0; id < ambientCount; id++) {
       final sw = Stopwatch()..start();
       final x = ambientSamples(id);
       sw.stop();
-      expect(x.length, sr * 30, reason: 'length of $id');
+      expect(x.length, (sr * ambientSeconds(id)).round(), reason: 'length of $id');
       var sum = 0.0, peak = 0.0;
       for (final v in x) {
         expect(v.isFinite, isTrue, reason: 'finite $id');
@@ -74,6 +74,13 @@ void main() {
         '$id rms=${rms.toStringAsFixed(3)} peak=${peak.toStringAsFixed(2)} '
         'repeat=${sim.toStringAsFixed(2)} ${sw.elapsedMilliseconds}ms',
       );
+      // Slow sounds: no loudness change faster than a breath. Count the big
+      // quarter-second jumps (events like drops or clacks).
+      var jumps = 0;
+      for (var i = 1; i < env.length; i++) {
+        if (env[i] > env[i - 1] * 1.6) jumps++;
+      }
+      expect(jumps / ambientSeconds(id), lessThan(1.0), reason: 'too busy $id');
       if (out != null) File('$out/ambient_$id.wav').writeAsBytesSync(ambientWav(id));
     }
   });

@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UniformTypeIdentifiers
+import Vision
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -34,6 +35,42 @@ final class NativeFiles: NSObject, UIDocumentPickerDelegate {
   func attach(_ messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: "pdf_flip_reader/files", binaryMessenger: messenger)
     channel.setMethodCallHandler { [weak self] call, result in self?.handle(call, result) }
+    let ocr = FlutterMethodChannel(name: "pdf_flip_reader/ocr", binaryMessenger: messenger)
+    ocr.setMethodCallHandler { [weak self] call, result in self?.readText(call, result) }
+  }
+
+  /// Text in a picture of a scanned page, with Apple's Vision (on device).
+  private func readText(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+    guard call.method == "read" else { return result(FlutterMethodNotImplemented) }
+    let args = call.arguments as? [String: Any] ?? [:]
+    let langs = args["langs"] as? [String] ?? ["en"]
+    let path = args["image"] as? String ?? ""
+    background(result) {
+      guard let image = UIImage(contentsOfFile: path)?.cgImage else {
+        throw NSError(domain: "ocr", code: 1, userInfo: [NSLocalizedDescriptionKey: "no image"])
+      }
+      let request = VNRecognizeTextRequest()
+      request.recognitionLevel = .accurate
+      request.usesLanguageCorrection = true
+      let wanted = langs.map { code -> String in
+        switch code {
+        case "th": return "th-TH"
+        case "zh": return "zh-Hans"
+        case "zh_Hant": return "zh-Hant"
+        case "ja": return "ja-JP"
+        case "ko": return "ko-KR"
+        case "vi": return "vi-VT"
+        default: return code
+        }
+      }
+      if let supported = try? request.supportedRecognitionLanguages() {
+        let usable = wanted.filter { w in supported.contains { $0.hasPrefix(w) || w.hasPrefix($0) } }
+        if !usable.isEmpty { request.recognitionLanguages = usable }
+      }
+      try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+      let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+      return lines.joined(separator: "\n")
+    }
   }
 
   private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
@@ -87,6 +124,27 @@ final class NativeFiles: NSObject, UIDocumentPickerDelegate {
         result(nil)
       case "edgeSwipes":
         result(nil)  // iOS has no back swipe from the right edge to keep clear.
+      case "shareImage":
+        let url = URL(fileURLWithPath: args["path"] as? String ?? "")
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let top = Self.topController() {
+          sheet.popoverPresentationController?.sourceView = top.view
+          sheet.popoverPresentationController?.sourceRect = CGRect(
+            x: top.view.bounds.midX, y: top.view.bounds.midY, width: 0, height: 0)
+          top.present(sheet, animated: true)
+        }
+        result(nil)
+      case "openTranslate":
+        let text = String((args["text"] as? String ?? "").prefix(4000))
+        var parts = URLComponents(string: "https://translate.google.com/")!
+        parts.queryItems = [
+          URLQueryItem(name: "sl", value: "auto"),
+          URLQueryItem(name: "tl", value: args["to"] as? String ?? "en"),
+          URLQueryItem(name: "op", value: "translate"),
+          URLQueryItem(name: "text", value: text),
+        ]
+        if let url = parts.url { UIApplication.shared.open(url) }
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }

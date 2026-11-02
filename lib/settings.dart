@@ -90,15 +90,39 @@ class Settings extends ChangeNotifier {
   bool get soundOn => _prefs.getBool('soundOn') ?? true;
   set soundOn(bool v) => _set(() => _prefs.setBool('soundOn', v));
 
-  int get soundIndex => (_prefs.getInt('soundIndex') ?? 0).clamp(0, 9);
-  set soundIndex(int v) => _set(() => _prefs.setInt('soundIndex', v));
+  /// Page-turn sound (0-2). A new key: the earlier ten sounds were replaced.
+  int get soundIndex => (_prefs.getInt('flipSound2') ?? 0).clamp(0, 2);
+  set soundIndex(int v) => _set(() => _prefs.setInt('flipSound2', v));
+
+  /// Animate page turns (the curling page). Off: the next page just appears.
+  /// Signature ink colour (ARGB) and line width, as last chosen.
+  int get signColor => _prefs.getInt('signColor') ?? 0xFF111111;
+  set signColor(int v) => _set(() => _prefs.setInt('signColor', v));
+  double get signWidth => (_prefs.getDouble('signWidth') ?? 3.5).clamp(1.0, 12.0);
+  set signWidth(double v) => _set(() => _prefs.setDouble('signWidth', v));
+
+  /// Which page-turn look to use (index into FlipStyle).
+  int get flipStyle => (_prefs.getInt('flipStyle') ?? 0).clamp(0, 7);
+  set flipStyle(int v) => _set(() => _prefs.setInt('flipStyle', v));
+
+  bool get flipAnimation => _prefs.getBool('flipAnimation') ?? true;
+  set flipAnimation(bool v) => _set(() => _prefs.setBool('flipAnimation', v));
 
   double get volume => _prefs.getDouble('volume') ?? 0.8;
   set volume(double v) => _set(() => _prefs.setDouble('volume', v));
 
-  /// Background sound while reading: -1 off, else 0-29 (see ambient.dart).
-  int get ambientIndex => (_prefs.getInt('ambientIndex') ?? -1).clamp(-1, 29);
-  set ambientIndex(int v) => _set(() => _prefs.setInt('ambientIndex', v));
+  /// Background sound while reading: -1 off, else 0-9 (see ambient.dart).
+  /// Lists changed twice (key ambientIndex: 30 sounds; ambient2: nine with
+  /// the train first); the train is gone, others keep their sound.
+  int get ambientIndex {
+    final v = _prefs.getInt('ambient3');
+    if (v != null) return v.clamp(-1, 9);
+    final old = _prefs.getInt('ambient2');
+    if (old != null) return old >= 1 ? (old - 1).clamp(0, 9) : -1;
+    return -1;
+  }
+
+  set ambientIndex(int v) => _set(() => _prefs.setInt('ambient3', v));
 
   double get ambientVolume => _prefs.getDouble('ambientVolume') ?? 0.4;
   set ambientVolume(double v) => _set(() => _prefs.setDouble('ambientVolume', v));
@@ -106,6 +130,10 @@ class Settings extends ChangeNotifier {
   /// Last language chosen for translating documents.
   String get translateTo => _prefs.getString('translateTo') ?? 'en';
   set translateTo(String v) => _set(() => _prefs.setString('translateTo', v));
+
+  /// Languages for reading text from scans, as Tesseract codes ("tha+eng").
+  String? get ocrLangs => _prefs.getString('ocrLangs');
+  set ocrLangs(String? v) => _set(() => _prefs.setString('ocrLangs', v ?? ''));
 
   /// Whether the one-time pinch-to-zoom tip has been shown.
   bool get zoomTipShown => _prefs.getBool('zoomTipShown') ?? false;

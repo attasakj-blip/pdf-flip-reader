@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 
@@ -21,6 +23,11 @@ class DocTranslator {
     'en', 'th', 'zh', 'ja', 'ko', 'fr', 'de', 'it', 'es', 'pt', 'ru', //
     'uk', 'pl', 'nl', 'tr', 'ar', 'hi', 'bn', 'id', 'ms', 'vi', 'fil',
   ];
+
+  /// False on Windows: ML Kit only runs on phones, so the desktop version
+  /// sends text to Google Translate's website instead, and can't write
+  /// translations onto pages.
+  static bool inApp = !Platform.isWindows;
 
   /// The translator in use; tests swap in a fake.
   static TextTranslator instance = MlKitTranslator();

@@ -6,8 +6,18 @@ import 'package:flutter/material.dart';
 /// One entry of an [EdgeMenu]. Give [on] for a setting that is switched on
 /// and off; the menu then stays open so the change can be seen.
 class EdgeMenuItem {
-  const EdgeMenuItem({required this.icon, required this.label, required this.onTap, this.on, this.enabled = true});
+  const EdgeMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.on,
+    this.enabled = true,
+    this.caption,
+  });
   final IconData icon;
+
+  /// Small text under the icon in an [EdgeRail], such as "120%".
+  final String? caption;
   final String label;
   final VoidCallback onTap;
   final bool? on;
@@ -283,4 +293,83 @@ class EdgeHandle extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Windows: the same items as an [EdgeMenu], always on screen as a column
+/// of round icons down one side of the window. Hovering shows the name.
+class EdgeRail extends StatelessWidget {
+  const EdgeRail({super.key, required this.left, required this.items});
+
+  final bool left;
+  final List<EdgeMenuItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: left ? Alignment.centerLeft : Alignment.centerRight,
+          end: left ? Alignment.centerRight : Alignment.centerLeft,
+          colors: const [Color(0xF0241A52), Color(0xD0130E38)],
+        ),
+        border: Border(
+          left: left ? BorderSide.none : BorderSide(color: _gold.withValues(alpha: 0.25)),
+          right: left ? BorderSide(color: _gold.withValues(alpha: 0.25)) : BorderSide.none,
+        ),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [for (final item in items) _button(item)]),
+        ),
+      ),
+    );
+  }
+
+  Widget _button(EdgeMenuItem item) {
+    final toggle = item.on != null;
+    final lit = toggle && item.on!;
+    final button = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Tooltip(
+        message: item.label,
+        preferBelow: false,
+        verticalOffset: 0,
+        margin: EdgeInsets.only(left: left ? 64 : 0, right: left ? 0 : 64),
+        child: Opacity(
+          opacity: item.enabled ? 1 : 0.35,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              splashColor: _gold.withValues(alpha: 0.3),
+              hoverColor: Colors.white.withValues(alpha: 0.12),
+              onTap: item.enabled ? item.onTap : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: lit ? const LinearGradient(colors: [_gold, _goldDeep]) : null,
+                  color: lit ? null : Colors.white.withValues(alpha: 0.08),
+                  border: Border.all(color: _gold.withValues(alpha: lit ? 0 : 0.35)),
+                ),
+                child: Icon(item.icon, size: 22, color: lit ? const Color(0xFF2A1B4E) : const Color(0xFFFFE2A8)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final caption = item.caption;
+    if (caption == null) return button;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        button,
+        Text(caption, style: const TextStyle(fontSize: 11, color: Color(0xFFFFE2A8))),
+      ],
+    );
+  }
 }

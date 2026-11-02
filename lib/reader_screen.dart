@@ -6,24 +6,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:printing/printing.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'ambient.dart';
 import 'book_painter.dart';
+import 'desktop.dart';
 import 'edge_menu.dart';
+import 'text_box.dart';
 import 'edit_tools.dart';
 import 'flip_sounds.dart';
 import 'goto_dialog.dart';
 import 'l10n.dart';
 import 'markup.dart';
 import 'native_files.dart';
+import 'ocr.dart';
+import 'ocr_dialog.dart';
 import 'page_cache.dart';
 import 'page_clipboard.dart';
+import 'page_scroller.dart';
 import 'pdf_edit.dart';
+import 'print_flow.dart';
 import 'save_flow.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
+import 'strings.g.dart' show languageNames;
 import 'translate_flow.dart';
+import 'translator.dart';
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.book, required this.settings, required this.sounds});
@@ -36,7 +45,11 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-enum _Tool { none, sign, area, translate, markup }
+enum _Tool { none, sign, area, translate, markup, ocr, text }
+
+/// One edit that can be undone: the working copy after it, what it was
+/// (shown in the undo list), the page to go back to and when it happened.
+typedef _Step = ({String path, String label, String suffix, int page, bool translated, DateTime at});
 
 enum _Gesture { none, turn, pan, zoom }
 
@@ -44,10 +57,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   /// The book on screen; saving an edit as a new file switches to it.
   late RecentBook _book = widget.book;
 
-  /// Edits not saved yet live in this copy of the book; saving writes it out.
-  String? _working;
-  String? _editSuffix;
-  String get _path => _working ?? _book.localPath;
+  /// Edits not saved yet: one copy of the book per step, newest last, so
+  /// each step can be undone. Saving writes the newest out.
+  final _history = <_Step>[];
+  static const _maxUndo = 25;
+  String? get _working => _history.isEmpty ? null : _history.last.path;
+  String? get _editSuffix => _history.isEmpty
+      ? null
+      : _history.length == 1
+      ? _history.first.suffix
+      : 'edited';
+
+  /// Showing the book as it was before the first translation (view only).
+  bool _showOriginal = false;
+
+  /// The copy from just before the first translation step, if any.
+  String? get _beforeTranslation {
+    final i = _history.indexWhere((h) => h.translated);
+    if (i < 0) return null;
+    return i == 0 ? _book.localPath : _history[i - 1].path;
+  }
+
+  String get _path => (_showOriginal ? _beforeTranslation : null) ?? _working ?? _book.localPath;
   PageCache? _cache;
   MirroredPages? _mirrored;
   bool _loading = true;
@@ -65,6 +96,22 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   bool _controlsVisible = true;
   _Tool _tool = _Tool.none;
   final _marks = <Mark>[];
+  // The markup tools open with the eraser chosen (from its own button).
+  bool _markErase = false;
+  // Marks written by each markup step (by the step's copy), so that the
+  // newest markup steps can be taken back for erasing, moving and resizing.
+  final _stepObjs = <String, ({List<Mark> marks, Map<int, double> aspects, List<TextNote> notes})>{};
+  // Markup steps taken back while the markup tools are open; Cancel puts
+  // them back as they were.
+  final _pulled = <_Step>[];
+  // A new text box waiting for a tap that says where it goes.
+  TextNote? _placing;
+  // Text boxes being placed, and the style the next one starts with.
+  final _notes = <TextNote>[];
+  final _noteStyle = TextNote(text: '', flags: [], font: '', size: 16, color: const Color(0xFF111111));
+  // Page shapes (height / width) of pages marked earlier, for saving marks
+  // made on pages that have since been scrolled away from.
+  final _markAspects = <int, double>{};
   Signature? _signature;
   Size _bookSize = Size.zero;
 
@@ -91,6 +138,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   int _dragDir = 0; // -1 forward (finger moves left), +1 backward
   bool _bottom = true;
   Offset _dragStart = Offset.zero;
+  Offset _dragLast = Offset.zero;
   Offset _cornerStart = Offset.zero;
   late final AnimationController _anim;
   Offset _animFrom = Offset.zero;
@@ -100,6 +148,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    if (Desktop.active) TextFonts.list(); // ask Windows for its fonts early: it takes a moment
     _anim = AnimationController(vsync: this)
       ..addListener(_tickAnim)
       ..addStatusListener((s) {
@@ -118,8 +167,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     NativeFiles.edgeSwipes(false);
     _focus.dispose();
     _ambient.dispose();
-    final w = _working;
-    if (w != null) File(w).delete().ignore();
+    _dropHistory();
     _mirrored?.dispose();
     _cache?.dispose();
     WakelockPlus.disable();
@@ -279,6 +327,10 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         return;
       }
     }
+    if (!_settings.flipAnimation) {
+      _dragLast = pos;
+      return;
+    }
     final k = _dragScale(l, screenWidth);
     final p = l.clampCorner(_cornerStart + (pos - _dragStart) * k, _bottom);
     setState(() => _flip = _flipWith(p));
@@ -292,6 +344,16 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   void _onDragEnd(Velocity velocity) {
+    if (!_settings.flipAnimation && _flip == null) {
+      // No page curl: a swipe just shows the next or previous page.
+      final dir = _dragDir;
+      _dragDir = 0;
+      if (dir == 0) return;
+      final dx = _dragLast.dx - _dragStart.dx, vx = velocity.pixelsPerSecond.dx;
+      final complete = dir < 0 ? (dx < -40 || vx < -250) : (dx > 40 || vx > 250);
+      if (complete) _jump(dir < 0);
+      return;
+    }
     final l = _layout;
     final f = _flip;
     if (l == null || f == null || _dragDir == 0) {
@@ -379,67 +441,124 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     ),
   );
 
+  /// The edit tools (left) or the translate and view tools (right). Phones
+  /// show them in the edge menus; Windows shows them as icon rails.
+  List<EdgeMenuItem> _edgeItems(bool left) {
+    final s = S.of(context);
+    if (left) {
+      final pct = '${(_zoom * 100).round()}%';
+      return [
+        if (_rails) ...[
+          EdgeMenuItem(
+            icon: Icons.zoom_in,
+            label: '${s.zoomIn} ($pct)',
+            caption: pct,
+            enabled: _zoom < _buttonMaxZoom - 0.01,
+            onTap: () => _stepZoom(1),
+          ),
+          EdgeMenuItem(
+            icon: Icons.zoom_out,
+            label: '${s.zoomOut} ($pct)',
+            enabled: _zoom > 1,
+            onTap: () => _stepZoom(-1),
+          ),
+        ],
+        EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
+        EdgeMenuItem(icon: Icons.format_color_text, label: s.markup, onTap: _fromEdge(_openMarkup)),
+        EdgeMenuItem(icon: Icons.auto_fix_normal, label: s.eraser, onTap: _fromEdge(() => _openMarkup(erase: true))),
+        EdgeMenuItem(icon: Icons.text_fields, label: s.insertText, onTap: _fromEdge(_startText)),
+        EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
+        EdgeMenuItem(
+          icon: Icons.crop,
+          label: s.copyAreaImage,
+          onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
+        ),
+        EdgeMenuItem(icon: Icons.print, label: s.printDocument, onTap: _fromEdge(_print)),
+        EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
+        if (_history.isNotEmpty)
+          EdgeMenuItem(icon: Icons.history, label: s.undoChanges, onTap: _fromEdge(_showUndoList)),
+      ];
+    }
+    return [
+      EdgeMenuItem(
+        icon: Icons.translate,
+        label: s.translateArea,
+        onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
+      ),
+      // Windows has no translator on the computer, so whole-document
+      // translation is left out there ("Translate text" stays).
+      if (DocTranslator.inApp)
+        EdgeMenuItem(
+          icon: Icons.g_translate,
+          label: s.translateDoc.replaceAll('…', ''),
+          onTap: _fromEdge(_translateDoc),
+        ),
+      EdgeMenuItem(
+        icon: Icons.document_scanner,
+        label: s.ocrArea,
+        onTap: _fromEdge(() => setState(() => _tool = _Tool.ocr)),
+      ),
+      if (_beforeTranslation != null)
+        EdgeMenuItem(icon: Icons.compare, label: s.showOriginal, on: _showOriginal, onTap: _fromEdge(_toggleOriginal)),
+      EdgeMenuItem(
+        icon: Icons.auto_stories_outlined,
+        label: s.flipEffect,
+        on: _settings.flipAnimation,
+        onTap: _fromEdge(_chooseFlipStyle),
+      ),
+      // Single and two pages work like the switch in the top bar: exactly
+      // one of them is lit.
+      EdgeMenuItem(
+        icon: Icons.crop_portrait,
+        label: s.singlePage,
+        on: !_twoPage,
+        onTap: () => _setMode(twoPage: false),
+      ),
+      EdgeMenuItem(icon: Icons.menu_book, label: s.twoPage, on: _twoPage, onTap: () => _setMode(twoPage: true)),
+      // Only means something with two pages, so it is shown only then.
+      if (_twoPage)
+        EdgeMenuItem(
+          icon: Icons.auto_stories,
+          label: s.coverAlone,
+          on: _coverAlone,
+          onTap: () => _setMode(coverAlone: !_coverAlone),
+        ),
+      EdgeMenuItem(icon: Icons.swap_horiz, label: s.rtlPages, on: _rtl, onTap: () => _setRtl(!_rtl)),
+      EdgeMenuItem(
+        icon: Icons.dark_mode,
+        label: s.nightMode,
+        on: _settings.nightMode,
+        onTap: () => setState(() => _settings.nightMode = !_settings.nightMode),
+      ),
+    ];
+  }
+
   Widget _edgeMenu(bool left) {
     final s = S.of(context);
     return Positioned.fill(
-      child: left
-          ? EdgeMenu(
-              left: true,
-              progress: _edge,
-              title: s.edgeEditTitle,
-              icon: Icons.edit_document,
-              onClose: _closeEdge,
-              items: [
-                EdgeMenuItem(icon: Icons.draw, label: s.signDocument, onTap: _fromEdge(_startSigning)),
-                EdgeMenuItem(
-                  icon: Icons.format_color_text,
-                  label: s.markup,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.markup)),
-                ),
-                EdgeMenuItem(icon: Icons.copy, label: s.copyPage, onTap: _fromEdge(_copyPage)),
-                EdgeMenuItem(
-                  icon: Icons.crop,
-                  label: s.copyArea,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
-                ),
-                EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
-              ],
-            )
-          : EdgeMenu(
-              left: false,
-              progress: _edge,
-              title: s.edgeViewTitle,
-              icon: Icons.auto_awesome,
-              onClose: _closeEdge,
-              items: [
-                EdgeMenuItem(
-                  icon: Icons.translate,
-                  label: s.translateArea,
-                  onTap: _fromEdge(() => setState(() => _tool = _Tool.translate)),
-                ),
-                EdgeMenuItem(
-                  icon: Icons.g_translate,
-                  label: s.translateDoc.replaceAll('…', ''),
-                  onTap: _fromEdge(_translateDoc),
-                ),
-                EdgeMenuItem(
-                  icon: Icons.auto_stories,
-                  label: s.coverAlone,
-                  on: _coverAlone,
-                  enabled: _twoPage,
-                  onTap: () => _setMode(coverAlone: !_coverAlone),
-                ),
-                EdgeMenuItem(icon: Icons.swap_horiz, label: s.rtlPages, on: _rtl, onTap: () => _setRtl(!_rtl)),
-                EdgeMenuItem(
-                  icon: Icons.dark_mode,
-                  label: s.nightMode,
-                  on: _settings.nightMode,
-                  onTap: () => setState(() => _settings.nightMode = !_settings.nightMode),
-                ),
-              ],
-            ),
+      child: EdgeMenu(
+        left: left,
+        progress: _edge,
+        title: left ? s.edgeEditTitle : s.edgeViewTitle,
+        icon: left ? Icons.edit_document : Icons.auto_awesome,
+        onClose: _closeEdge,
+        items: _edgeItems(left),
+      ),
     );
   }
+
+  /// Windows: the edge menus' tools as a column of icons down each side.
+  static const _railWidth = 60.0;
+  bool get _rails => Desktop.active;
+
+  Widget _rail(bool left) => Positioned(
+    top: 0,
+    bottom: 0,
+    left: left ? 0 : null,
+    right: left ? null : 0,
+    width: _railWidth,
+    child: EdgeRail(left: left, items: _edgeItems(left)),
+  );
 
   // ---------------------------------------------------------------- zoom ---
 
@@ -499,6 +618,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
   }
 
+  static const _buttonMaxZoom = 4.0;
+
+  /// Windows zoom buttons: 10% steps between 100% and 400%, keeping
+  /// the middle of the window where it is.
+  void _stepZoom(int steps) {
+    if (!_idle) return;
+    final z = ((_zoom * 10).round() + steps).clamp(10, (_buttonMaxZoom * 10).round()) / 10;
+    if (z == _zoom) return;
+    if (z <= 1) {
+      _resetZoom();
+      return;
+    }
+    final size = _bookSize;
+    final mid = Offset(size.width / 2, size.height / 2);
+    final anchor = (mid - _pan) / _zoom;
+    setState(() {
+      _zoom = z;
+      _pan = _clampPan(mid - anchor * z, z, size);
+      _renderZoom = math.min(z, 2.5);
+    });
+  }
+
   /// Keeps the zoomed book covering the screen.
   Offset _clampPan(Offset p, double z, Size size) =>
       Offset(p.dx.clamp(size.width * (1 - z), 0.0), p.dy.clamp(size.height * (1 - z), 0.0));
@@ -541,12 +682,60 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     _saveProgress();
   }
 
+  /// Shows the next or previous page straight away, without the curl.
+  void _jump(bool forward) {
+    if (forward ? !_hasNext : !_hasPrev) return;
+    widget.sounds.playTurn();
+    setState(() => _index += forward ? 1 : -1);
+    _prefetch();
+    _saveProgress();
+  }
+
+  /// Lets the reader pick how pages turn, or turn the animation off.
+  Future<void> _chooseFlipStyle() async {
+    final s = S.of(context);
+    final names = [
+      s.flipCurl,
+      s.flipFold,
+      s.flipSlide,
+      s.flipFade,
+      s.flipHinge,
+      s.flipCover,
+      s.flipUncover,
+      s.flipZoom,
+    ];
+    final current = _settings.flipAnimation ? _settings.flipStyle : -1;
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(s.flipEffect),
+        children: [
+          for (var i = -1; i < names.length; i++)
+            ListTile(
+              leading: Icon(i == current ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+              title: Text(i < 0 ? s.flipNone : names[i]),
+              onTap: () => Navigator.pop(ctx, i),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _settings.flipAnimation = picked >= 0;
+      if (picked >= 0) _settings.flipStyle = picked;
+    });
+  }
+
   /// Animated turn for buttons, keyboard and presentation clickers.
   void _turn(bool forward) {
     if (_zoom > 1) _resetZoom();
     final l = _layout;
     if (l == null || _anim.isAnimating || _flip != null) return;
     if (forward ? !_hasNext : !_hasPrev) return;
+    if (!_settings.flipAnimation) {
+      _jump(forward);
+      return;
+    }
     _bottom = true;
     _dragDir = forward ? -1 : 1;
     final start = forward ? l.corner(true) : l.turnedCorner(true);
@@ -555,6 +744,38 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     _animateCorner(forward ? l.turnedCorner(true) : l.corner(true), () {
       _index += forward ? 1 : -1;
     });
+  }
+
+  DateTime _lastWheel = DateTime(2000);
+
+  /// Mouse wheel (Windows): one page per notch, unless zoomed in.
+  void _onWheel(PointerSignalEvent e) {
+    if (e is! PointerScrollEvent || !_idle) return;
+    // Signing and marking up can go on across pages: the wheel moves to
+    // another page while the tool stays out.
+    final annotating = _tool == _Tool.sign || _tool == _Tool.markup || _tool == _Tool.text;
+    if (_tool != _Tool.none && !annotating) return;
+    if (HardwareKeyboard.instance.isControlPressed) return;
+    final dy = e.scrollDelta.dy;
+    if (dy.abs() < 1) return;
+    if (_zoom != 1 && !annotating) {
+      // Zoomed in: the wheel moves up and down the page.
+      setState(() => _pan = _clampPan(_pan - Offset(e.scrollDelta.dx, dy), _zoom, _bookSize));
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastWheel) < const Duration(milliseconds: 300)) return;
+    _lastWheel = now;
+    if (!annotating) {
+      _turn(dy > 0);
+      return;
+    }
+    // No page-turn animation here: the marks drawn so far stay on their pages.
+    for (final sl in _slots) {
+      _markAspects[sl.page] = sl.rect.height / sl.rect.width;
+    }
+    if (_zoom != 1) _resetZoom();
+    _jump(dy > 0);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
@@ -616,21 +837,106 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     });
   }
 
-  Future<void> _saveMarks() async {
-    final aspects = {for (final s in _slots) s.page: s.rect.height / s.rect.width};
+  /// Writes the marks and text boxes on the page into the book as one step.
+  /// Steps taken back for editing are replaced by it.
+  Future<void> _saveObjects() async {
+    final aspects = {..._markAspects, for (final s in _slots) s.page: s.rect.height / s.rect.width};
+    _markAspects.clear();
     final marks = List<Mark>.of(_marks);
+    final notes = List<TextNote>.of(_notes);
+    final pulled = List<_Step>.of(_pulled);
+    _pulled.clear();
     setState(() {
       _tool = _Tool.none;
       _marks.clear();
+      _notes.clear();
+      _placing = null;
     });
-    await _runEdit(
-      keepPage: marks.first.page,
-      suffix: 'marked',
-      edit: (dest) async => PdfEditor.stampAll(_path, dest, await markStamps(marks, aspects)),
+    for (final h in pulled) {
+      File(h.path).delete().ignore();
+      _stepObjs.remove(h.path);
+    }
+    if (marks.isEmpty && notes.isEmpty) {
+      // Everything was erased: the book is as it was before those steps.
+      if (pulled.isNotEmpty) _toast(S.of(context).undoneSteps(pulled.length));
+      return;
+    }
+    final stamps = [...await markStamps(marks, aspects), ...await textStamps(notes)];
+    if (!mounted) return;
+    final pages = [...marks.map((m) => m.page), ...notes.map((n) => n.page)];
+    final path = await _runEdit(
+      keepPage: pages.first,
+      suffix: marks.isEmpty ? 'text' : 'marked',
+      label: marks.isEmpty ? S.of(context).stepText(_pageList(pages)) : S.of(context).stepMarkup(_pageList(pages)),
+      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps),
     );
+    if (path != null) _stepObjs[path] = (marks: marks, aspects: aspects, notes: notes);
+  }
+
+  /// Takes back the newest steps made of marks and text boxes, if nothing
+  /// else was done after them, so they can be erased, moved and changed.
+  Future<void> _pullBack() async {
+    final back = <_Step>[];
+    while (_history.isNotEmpty && _stepObjs.containsKey(_history.last.path)) {
+      back.insert(0, _history.removeLast());
+    }
+    if (back.isEmpty) return;
+    for (final h in back) {
+      final o = _stepObjs[h.path]!;
+      _marks.addAll(o.marks.map((k) => k.copy()));
+      _markAspects.addAll(o.aspects);
+      _notes.addAll(o.notes.map((n) => n.copy()));
+    }
+    _pulled
+      ..clear()
+      ..addAll(back);
+    await _reload(_firstVisiblePage);
+  }
+
+  /// Opens the markup tools, with the newest saved marks and text boxes.
+  Future<void> _openMarkup({bool erase = false}) async {
+    if (!_editAllowed()) return;
+    await _pullBack();
+    if (!mounted) return;
+    setState(() {
+      _markErase = erase;
+      _tool = _Tool.markup;
+    });
+  }
+
+  /// Leaves the markup or text tool without changes: steps taken back return.
+  Future<void> _cancelObjects() async {
+    final back = List<_Step>.of(_pulled);
+    _pulled.clear();
+    _markAspects.clear();
+    setState(() {
+      _tool = _Tool.none;
+      _marks.clear();
+      _notes.clear();
+      _placing = null;
+    });
+    if (back.isEmpty) return;
+    _history.addAll(back);
+    await _reload(_firstVisiblePage);
   }
 
   bool get _idle => _flip == null && !_anim.isAnimating && !_loading && _cache != null;
+
+  /// Edits are made on the newest copy: not while the original is shown.
+  bool _editAllowed() {
+    if (!_idle) return false;
+    if (_showOriginal) {
+      _toast(S.of(context).backToTranslationFirst);
+      return false;
+    }
+    return true;
+  }
+
+  /// Page numbers for the undo list: "3", "3, 4" or "3, 4, 5…".
+  static String _pageList(Iterable<int> pages) {
+    final list = (pages.toSet().toList()..sort()).map((p) => '${p + 1}').toList();
+    return list.length > 3 ? '${list.take(3).join(', ')}…' : list.join(', ');
+  }
 
   void _toast(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
@@ -641,9 +947,101 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     return '$tmp/edit_${DateTime.now().microsecondsSinceEpoch}.pdf';
   }
 
-  Future<void> _startSigning() async {
+  /// Opens the text tool with the newest saved text boxes, or the text
+  /// window for a new box when there are none.
+  Future<void> _startText() async {
+    if (!_editAllowed()) return;
+    _resetZoom();
+    await _pullBack();
+    if (!mounted) return;
+    if (_notes.isEmpty) {
+      if (!await _addText() && _pulled.isNotEmpty) await _cancelObjects();
+      return;
+    }
+    setState(() => _tool = _Tool.text);
+  }
+
+  /// Asks for a new box's text; false when the user backs out.
+  Future<bool> _addText() async {
+    final n = await showTextEditor(context, style: _noteStyle);
+    if (n == null || !mounted) return false;
+    _rememberStyle(n);
+    final slots = _slots;
+    if (slots.isEmpty) return false;
+    final mid = Offset(_bookSize.width / 2, _bookSize.height / 2);
+    final slot = slots.firstWhere((sl) => sl.rect.contains(mid), orElse: () => slots.first);
+    // Placed over the middle of the page, then dragged where it should go.
+    final onPage = _notes.where((o) => o.page == slot.page).length;
+    n
+      ..page = slot.page
+      ..aspect = slot.rect.height / slot.rect.width
+      ..width = 0.5
+      ..left = 0.25
+      ..top = (0.35 + 0.06 * onPage).clamp(0.0, 0.85);
+    setState(() {
+      _notes.add(n);
+      _placing = n;
+      _tool = _Tool.text;
+    });
+    return true;
+  }
+
+  Future<void> _editNote(TextNote n) async {
+    final r = await showTextEditor(context, note: n, style: _noteStyle);
+    if (r == null || !mounted) return;
+    _rememberStyle(r);
+    setState(() {});
+  }
+
+  void _rememberStyle(TextNote n) {
+    _noteStyle
+      ..font = n.font
+      ..size = n.size
+      ..color = n.color;
+  }
+
+  /// Prints the book as it is now (with unsaved edits). Android's print
+  /// screen has every choice; on Windows the pages are chosen first.
+  Future<void> _print() async {
     if (!_idle) return;
-    final sig = await showSignaturePad(context);
+    final s = S.of(context);
+    final total = _cache!.pageCount;
+    var src = _path;
+    String? part;
+    try {
+      if (Desktop.active) {
+        final pages = await showPrintPages(context, current: _slots.map((e) => e.page).toList(), total: total);
+        if (pages == null || !mounted) return;
+        if (pages.length < total) {
+          part = await _scratchPdf();
+          final keep = pages.toSet();
+          await PdfEditor.deletePages(src, part, [
+            for (var i = 0; i < total; i++)
+              if (!keep.contains(i)) i,
+          ]);
+          src = part;
+        }
+      }
+      final bytes = await File(src).readAsBytes();
+      await Printing.layoutPdf(name: _book.name, usePrinterSettings: true, onLayout: (_) async => bytes);
+    } catch (e) {
+      if (mounted) _toast(s.printFailed(e));
+    } finally {
+      if (part != null) File(part).delete().ignore();
+    }
+  }
+
+  Future<void> _startSigning() async {
+    if (!_editAllowed()) return;
+    final sig = await showSignaturePad(
+      context,
+      color: Color(_settings.signColor),
+      width: _settings.signWidth,
+      onStyle: (c, w) {
+        _settings.signColor = c.toARGB32();
+        _settings.signWidth = w;
+      },
+    );
     if (sig == null || !mounted) return;
     setState(() {
       _signature = sig;
@@ -660,6 +1058,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _runEdit(
       keepPage: slot.page,
       suffix: 'signed',
+      label: S.of(context).stepSign(_pageList([slot.page])),
       edit: (dest) async {
         // Roughly 300 dpi for the signature image on a typical page.
         final px = (box.width / slot.rect.width * 2400).clamp(120, 1800).round();
@@ -670,7 +1069,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   }
 
   Future<void> _askDelete() async {
-    if (!_idle) return;
+    if (!_editAllowed()) return;
     _resetZoom();
     final s = S.of(context);
     final pages = _slots.map((e) => e.page).toList();
@@ -705,6 +1104,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _runEdit(
       keepPage: math.min(first, total - del.length - 1),
       suffix: 'edited',
+      label: s.stepDelete(_pageList(del)),
       edit: (dest) => PdfEditor.deletePages(_path, dest, del),
     );
   }
@@ -712,10 +1112,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   /// Makes an edited copy with [edit], asks how to save it and shows the
   /// result. The original stays as it was if anything fails or the user
   /// backs out.
-  Future<void> _runEdit({
+  Future<String?> _runEdit({
     required int keepPage,
     required String suffix,
+    required String label,
     required Future<void> Function(String dest) edit,
+    bool translated = false,
   }) async {
     final dest = await _scratchPdf();
     setState(() => _loading = true);
@@ -727,17 +1129,65 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         _toast(S.of(context).saveFailed(e));
       }
       File(dest).delete().ignore();
-      return;
+      return null;
     }
     if (!mounted) {
       File(dest).delete().ignore();
-      return;
+      return null;
     }
-    final previous = _working;
-    _working = dest;
-    _editSuffix = _editSuffix == null ? suffix : 'edited';
+    _history.add((
+      path: dest,
+      label: label,
+      suffix: suffix,
+      page: keepPage,
+      translated: translated,
+      at: DateTime.now(),
+    ));
+    if (_history.length > _maxUndo) File(_history.removeAt(0).path).delete().ignore();
+    _showOriginal = false;
     await _reload(keepPage);
-    if (previous != null) File(previous).delete().ignore();
+    return dest;
+  }
+
+  /// Deletes every unsaved step's copy.
+  void _dropHistory() {
+    for (final h in _history) {
+      File(h.path).delete().ignore();
+    }
+    _history.clear();
+    _stepObjs.clear();
+    _showOriginal = false;
+  }
+
+  /// Undoes the steps from [from] (index in [_history]) to the newest.
+  Future<void> _undoFrom(int from) async {
+    if (!_idle || from < 0 || from >= _history.length) return;
+    final removed = _history.sublist(from);
+    _history.removeRange(from, _history.length);
+    if (_beforeTranslation == null) _showOriginal = false;
+    await _reload(removed.first.page);
+    for (final h in removed) {
+      File(h.path).delete().ignore();
+    }
+    if (mounted) _toast(S.of(context).undoneSteps(removed.length));
+  }
+
+  /// The list of steps: pick how far back to go.
+  Future<void> _showUndoList() async {
+    if (!_idle || _history.isEmpty) return;
+    final from = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _UndoSheet(steps: _history.map((h) => (label: h.label, at: h.at)).toList()),
+    );
+    if (from != null) await _undoFrom(from);
+  }
+
+  Future<void> _toggleOriginal() async {
+    if (!_idle || _beforeTranslation == null) return;
+    _showOriginal = !_showOriginal;
+    await _reload(_firstVisiblePage);
   }
 
   Future<void> _reload(int keepPage) async {
@@ -764,10 +1214,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     final old = _book;
     final keep = _firstVisiblePage;
     _book = saved.book;
-    _working = null;
-    _editSuffix = null;
+    _dropHistory();
     await _reload(keep);
-    File(working).delete().ignore();
     if (saved.replaced && old.localPath != saved.book.localPath) File(old.localPath).delete().ignore();
     return true;
   }
@@ -790,11 +1238,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     );
     if (choice == 'save') return _saveWorking();
     if (choice == 'discard') {
-      File(_working!).delete().ignore();
-      setState(() {
-        _working = null;
-        _editSuffix = null;
-      });
+      setState(_dropHistory);
       return true;
     }
     return false;
@@ -834,12 +1278,26 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     await _copy(() => PageClipboard(_cache!).areaPng(slots, area));
   }
 
+  /// Copies an image to the clipboard, and offers to share it straight to
+  /// another app (some apps can't paste images).
   Future<void> _copy(Future<Uint8List> Function() png) async {
     final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _loading = true);
     try {
-      await PageClipboard.copy(await png());
-      if (mounted) _toast(s.copied);
+      final file = await PageClipboard.copy(await png());
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(s.copied),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: s.shareImage,
+              onPressed: () => NativeFiles.shareImage(file).catchError((_) {}),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) _toast(s.saveFailed(e));
     } finally {
@@ -861,11 +1319,28 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
     if (!mounted) return;
     if (segments.isEmpty) {
-      _toast(s.noText);
+      // Probably a scanned page: offer to read the text from the picture.
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: Text(s.scannedOffer),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.ocrButton)),
+          ],
+        ),
+      );
+      if (ok == true && mounted) await _ocrArea(area, thenTranslate: true);
       return;
     }
     final to = await pickTargetLanguage(context, _settings);
     if (to == null || !mounted) return;
+    if (!DocTranslator.inApp) {
+      // Windows: no translator on the computer; Google Translate's website
+      // opens with the text filled in.
+      await showWebTranslation(context, segments.map((g) => cleanText(g.block.text)).join('\n\n'), to);
+      return;
+    }
     final message = ValueNotifier(s.translating);
     List<String>? out;
     try {
@@ -884,11 +1359,19 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       return;
     }
     final texts = out;
-    final put = await showTranslation(context, segments.map((g) => g.block.text).join('\n\n'), texts.join('\n\n'));
+    final put = await showTranslation(
+      context,
+      segments.map((g) => g.block.text).join('\n\n'),
+      texts.join('\n\n'),
+      to: to,
+      canPlace: !_showOriginal,
+    );
     if (!put || !mounted) return;
     await _runEdit(
       keepPage: segments.first.page,
       suffix: 'translated_$to',
+      label: s.stepTranslateArea(_pageList(segments.map((g) => g.page)), languageNames[to] ?? to),
+      translated: true,
       edit: (dest) async {
         final stamps = <Stamp>[];
         for (var i = 0; i < segments.length; i++) {
@@ -899,58 +1382,184 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     );
   }
 
+  /// Translates chosen pages into a new PDF file: the pages keep their
+  /// pictures, tables and layout, with the translation where the text was.
+  /// The book on screen is not changed. Windows has no translator on the
+  /// computer, so there it opens Google Translate's document page instead.
   Future<void> _translateDoc() async {
-    if (!_idle) return;
-    _resetZoom();
     final s = S.of(context);
+    if (!DocTranslator.inApp) {
+      await openGoogleTranslateDocs(context);
+      return;
+    }
+    _resetZoom();
     final total = _cache!.pageCount;
     final visible = _slots.map((e) => e.page).toList();
     final ask = await askDocTranslation(
       context,
       _settings,
       total,
-      total <= 10 ? List.generate(total, (i) => i) : visible,
+      total <= 20 ? List.generate(total, (i) => i) : visible,
     );
     if (ask == null || !mounted) return;
     final message = ValueNotifier(s.translating);
     final stamps = <Stamp>[];
     bool? unknown;
+    var anyText = false;
+    String? out;
     try {
-      await withProgress(context, message, () async {
+      out = await withProgress(context, message, () async {
         for (var k = 0; k < ask.pages.length; k++) {
           final page = ask.pages[k];
           message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}';
-          final blocks = translatable(await PdfEditor.textBlocks(_path, page));
-          if (blocks.isEmpty) continue;
-          final out = await translateAll(
-            [for (final b in blocks) b.text],
+          // Every bit of text is redrawn on the new page; only blocks with
+          // letters are translated (page numbers and figures stay as they are).
+          final blocks = await PdfEditor.textBlocks(_path, page);
+          final words = translatable(blocks);
+          if (words.isEmpty) continue;
+          anyText = true;
+          final translated = await translateAll(
+            [for (final b in words) b.text],
             ask.to,
             message: message,
             s: s,
             onProgress: (_) => message.value = '${s.translating} ${s.pageProgress(k + 1, ask.pages.length)}',
           );
-          if (out == null) {
+          if (translated == null) {
             unknown ??= true;
             continue;
           }
           unknown = false;
-          stamps.addAll(await translatedStamps(_path, page, blocks, out));
+          final byBlock = {for (var i = 0; i < words.length; i++) words[i]: translated[i]};
+          final texts = [for (final b in blocks) byBlock[b] ?? b.text];
+          stamps.addAll(await translatedPageStamps(_path, page, blocks, texts));
         }
+        if (stamps.isEmpty) return null;
+        final dest = await _scratchPdf();
+        await PdfEditor.translatedCopy(_path, dest, ask.pages, stamps);
+        return dest;
       });
     } catch (e) {
       if (mounted) _toast(s.translateFailed(e));
       return;
     }
     if (!mounted) return;
-    if (stamps.isEmpty) {
-      _toast(unknown == true ? s.unknownLanguage : s.noText);
+    if (out == null) {
+      if (anyText && unknown == true) {
+        _toast(s.unknownLanguage);
+      } else {
+        // No text layer: likely a scan. Point to reading text from the image.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(s.scannedOffer),
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(label: s.ocrButton, onPressed: () => setState(() => _tool = _Tool.ocr)),
+          ),
+        );
+      }
       return;
     }
-    await _runEdit(
-      keepPage: ask.pages.first,
-      suffix: 'translated_${ask.to}',
-      edit: (dest) => PdfEditor.stampAll(_path, dest, stamps, replaceText: true),
+    final base = _book.name.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '');
+    final saved = await saveAsNewFile(context, _settings, _book, out, suggested: '${base}_${ask.to}.pdf');
+    File(out).delete().ignore();
+    if (saved == null || !mounted) return;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(s.openTranslatedQuestion(saved.name)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.close)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(s.openTranslated)),
+        ],
+      ),
     );
+    if (open == true && mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ReaderScreen(book: saved, settings: _settings, sounds: widget.sounds),
+        ),
+      );
+    }
+  }
+
+  // ------------------------------------------------------ text from scans ---
+
+  /// Reads the text inside [area] from the page pictures (for scanned PDFs),
+  /// then lets the user fix, copy or translate it.
+  Future<void> _ocrArea(Rect area, {bool thenTranslate = false}) async {
+    setState(() => _tool = _Tool.none);
+    final s = S.of(context);
+    final slots = _zoomedSlots;
+    final png = await PageClipboard(_cache!).areaPng(slots, area, side: 3600, maxScale: 6);
+    if (!mounted) return;
+    var langs = _ocrLangs;
+    while (true) {
+      if (!mounted) return;
+      final message = ValueNotifier(s.ocrReading);
+      String text;
+      try {
+        text = await withProgress(
+          context,
+          message,
+          () => Ocr.instance.read(png, langs, onDownload: () => message.value = s.ocrDownloading),
+        );
+      } on MissingPluginException {
+        if (mounted) _toast(s.ocrNotSupported);
+        return;
+      } catch (e) {
+        if (mounted) _toast(s.ocrFailed(e));
+        return;
+      }
+      if (!mounted) return;
+      final result = await showDialog<OcrResult>(
+        context: context,
+        builder: (_) => OcrResultDialog(text: text, langs: langs, autoTranslate: thenTranslate),
+      );
+      if (result == null || !mounted) return;
+      if (result.langs != null) {
+        // Read again in other languages.
+        langs = result.langs!;
+        _settings.ocrLangs = langs.join('+');
+        thenTranslate = false;
+        continue;
+      }
+      if (result.translate != null) await _translateText(result.translate!);
+      return;
+    }
+  }
+
+  List<String> get _ocrLangs {
+    final saved = _settings.ocrLangs;
+    if (saved != null && saved.isNotEmpty) {
+      final list = saved.split('+').where(Ocr.tesseract.containsKey).toList();
+      if (list.isNotEmpty) return list;
+    }
+    return Ocr.defaultsFor(S.of(context).code);
+  }
+
+  /// Translates text that is not on the page (read from a scan).
+  Future<void> _translateText(String text) async {
+    final s = S.of(context);
+    final to = await pickTargetLanguage(context, _settings);
+    if (to == null || !mounted) return;
+    if (!DocTranslator.inApp) {
+      await showWebTranslation(context, cleanText(text), to);
+      return;
+    }
+    final message = ValueNotifier(s.translating);
+    List<String>? out;
+    try {
+      out = await withProgress(context, message, () => translateAll([text], to, message: message, s: s));
+    } catch (e) {
+      if (mounted) _toast(s.translateFailed(e));
+      return;
+    }
+    if (!mounted) return;
+    if (out == null) {
+      _toast(s.unknownLanguage);
+      return;
+    }
+    await showTranslation(context, text, out.first, to: to, canPlace: false);
   }
 
   // ------------------------------------------------------------- dialogs ---
@@ -969,10 +1578,12 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
 
   // --------------------------------------------------------------- build ---
 
-  String get _pageLabel {
+  String get _pageLabel => _labelFor(_index);
+
+  String _labelFor(int index) {
     final total = _cache?.pageCount ?? 0;
     if (_spreads.isEmpty) return '';
-    final pages = _spreads[_index].pages.map((p) => p + 1).toList();
+    final pages = _spreads[index.clamp(0, _spreads.length - 1)].pages.map((p) => p + 1).toList();
     final range = pages.length == 2 ? '${pages[0]}–${pages[1]}' : '${pages.first}';
     return S.of(context).pageLabel(range, total);
   }
@@ -996,53 +1607,93 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
         focusNode: _focus,
         autofocus: true,
         onKeyEvent: _onKey,
-        child: Stack(
-          children: [
-            Positioned.fill(child: cache == null ? const SizedBox.shrink() : _bookView(cache)),
-            if (cache != null && _tool == _Tool.none) _topBar(),
-            if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
-            if (_tool == _Tool.sign && _signature != null)
+        // Wraps everything so the wheel also works while a tool is out.
+        child: Listener(
+          onPointerSignal: _onWheel,
+          child: Stack(
+            children: [
               Positioned.fill(
-                child: PlaceSignature(
-                  signature: _signature!,
-                  slots: _zoomedSlots,
-                  onDone: _placeSignature,
-                  onCancel: () => setState(() => _tool = _Tool.none),
+                left: _rails ? _railWidth : 0,
+                right: _rails ? _railWidth : 0,
+                child: cache == null ? const SizedBox.shrink() : _bookView(cache),
+              ),
+              if (cache != null && _tool == _Tool.none) _topBar(),
+              if (cache != null && _spreads.length > 1 && _tool == _Tool.none) _bottomBar(),
+              if (cache != null && _spreads.length > 2 && _tool == _Tool.none) _scroller(),
+              if (_tool == _Tool.sign && _signature != null)
+                Positioned.fill(
+                  child: PlaceSignature(
+                    signature: _signature!,
+                    slots: _zoomedSlots,
+                    onDone: _placeSignature,
+                    onCancel: () => setState(() => _tool = _Tool.none),
+                  ),
                 ),
-              ),
-            if (_tool == _Tool.markup)
-              Positioned.fill(
-                child: MarkupLayer(
-                  slots: _zoomedSlots,
-                  marks: _marks,
-                  pageChars: (page) => PdfEditor.pageChars(_path, page),
-                  zoom: _zoom,
-                  pan: _screenPan,
-                  onZoom: _setScreenZoom,
-                  onDone: _saveMarks,
-                  onCancel: () => setState(() {
-                    _tool = _Tool.none;
-                    _marks.clear();
-                  }),
+              if (_tool == _Tool.markup)
+                Positioned.fill(
+                  child: MarkupLayer(
+                    slots: _zoomedSlots,
+                    marks: _marks,
+                    notes: _notes,
+                    pageChars: (page) => PdfEditor.pageChars(_path, page),
+                    zoom: _zoom,
+                    pan: _screenPan,
+                    onZoom: _setScreenZoom,
+                    erasing: _markErase,
+                    // With marks taken back, Done also works once all are erased.
+                    canFinishEmpty: _pulled.isNotEmpty,
+                    onDone: _saveObjects,
+                    onCancel: _cancelObjects,
+                  ),
                 ),
-              ),
-            if (_tool == _Tool.translate)
-              Positioned.fill(
-                child: SelectArea(
-                  hint: S.of(context).selectTextHint,
-                  confirm: S.of(context).translateButton,
-                  onDone: _translateArea,
-                  onCancel: () => setState(() => _tool = _Tool.none),
+              if (_tool == _Tool.text && _marks.isNotEmpty)
+                Positioned.fill(
+                  child: IgnorePointer(child: CustomPaint(painter: marksPainter(_marks, _zoomedSlots))),
                 ),
-              ),
-            if (_tool == _Tool.area)
-              Positioned.fill(
-                child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
-              ),
-            if (cache != null && _tool == _Tool.none) ...[_edgeStrip(true), _edgeStrip(false)],
-            if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
-            if (_loading) const Center(child: CircularProgressIndicator()),
-          ],
+              if (_tool == _Tool.text)
+                Positioned.fill(
+                  child: TextLayer(
+                    slots: _zoomedSlots,
+                    notes: _notes,
+                    onAdd: _addText,
+                    onEdit: _editNote,
+                    onDone: _saveObjects,
+                    onCancel: _cancelObjects,
+                    placing: _placing,
+                    onPlaced: () => setState(() => _placing = null),
+                    hint: _notes.isNotEmpty && _pulled.isNotEmpty ? S.of(context).textBackHint : null,
+                    canFinishEmpty: _pulled.isNotEmpty,
+                  ),
+                ),
+              if (_tool == _Tool.translate)
+                Positioned.fill(
+                  child: SelectArea(
+                    hint: S.of(context).selectTextHint,
+                    confirm: S.of(context).translateButton,
+                    onDone: _translateArea,
+                    onCancel: () => setState(() => _tool = _Tool.none),
+                  ),
+                ),
+              if (_tool == _Tool.area)
+                Positioned.fill(
+                  child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
+                ),
+              if (_tool == _Tool.ocr)
+                Positioned.fill(
+                  child: SelectArea(
+                    hint: S.of(context).ocrHint,
+                    confirm: S.of(context).ocrButton,
+                    onDone: _ocrArea,
+                    onCancel: () => setState(() => _tool = _Tool.none),
+                  ),
+                ),
+              if (cache != null && _tool == _Tool.none && _beforeTranslation != null) _originalSwitch(),
+              if (cache != null && _tool == _Tool.none && !_rails) ...[_edgeStrip(true), _edgeStrip(false)],
+              if (cache != null && _tool == _Tool.none && _rails) ...[_rail(true), _rail(false)],
+              if (_edgeLeft != null) _edgeMenu(_edgeLeft!),
+              if (_loading) const Center(child: CircularProgressIndicator()),
+            ],
+          ),
         ),
       ),
     );
@@ -1089,6 +1740,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 layout: layout,
                 spread: _spreads.isEmpty ? const Spread(null, null) : _spreads[_index],
                 flip: _flip,
+                style: FlipStyle.values[_settings.flipStyle],
               ),
             ),
           ),
@@ -1102,8 +1754,9 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   Widget _topBar() => AnimatedPositioned(
     duration: const Duration(milliseconds: 200),
     top: _controlsVisible ? 0 : -120,
-    left: 0,
-    right: 0,
+    // On Windows the bar sits between the icon rails, so neither hides the other.
+    left: _rails ? _railWidth : 0,
+    right: _rails ? _railWidth : 0,
     child: Material(
       color: Colors.black.withValues(alpha: 0.6),
       child: SafeArea(
@@ -1124,6 +1777,21 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ],
               ),
             ),
+            if (_history.isNotEmpty) ...[
+              IconButton(
+                tooltip: '${S.of(context).undo} (${S.of(context).undoChanges}…)',
+                icon: Badge.count(count: _history.length, child: const Icon(Icons.undo)),
+                onPressed: () => _undoFrom(_history.length - 1),
+                onLongPress: _showUndoList,
+              ),
+              // Narrow phones: the list is a long press on undo, or in the menu.
+              if (MediaQuery.sizeOf(context).width >= 420)
+                IconButton(
+                  tooltip: S.of(context).undoChanges,
+                  icon: const Icon(Icons.history),
+                  onPressed: _showUndoList,
+                ),
+            ],
             SegmentedButton<bool>(
               showSelectedIcon: false,
               segments: [
@@ -1145,7 +1813,13 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'sign') _startSigning();
                 if (v == 'copyPage') _copyPage();
                 if (v == 'copyArea' && _idle) setState(() => _tool = _Tool.area);
-                if (v == 'markup' && _idle) setState(() => _tool = _Tool.markup);
+                if (v == 'markup') _openMarkup();
+                if (v == 'text') _startText();
+                if (v == 'ocr' && _idle) setState(() => _tool = _Tool.ocr);
+                if (v == 'undoList') _showUndoList();
+                if (v == 'original') _toggleOriginal();
+                if (v == 'flip') _chooseFlipStyle();
+                if (v == 'licenses') showLicensePage(context: context, applicationName: 'Pagelume');
                 if (v == 'delete') _askDelete();
                 if (v == 'translateArea' && _idle) setState(() => _tool = _Tool.translate);
                 if (v == 'translateDoc') _translateDoc();
@@ -1153,7 +1827,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 if (v == 'save') _saveWorking();
                 if (v == 'exit') {
                   _confirmLeave().then((ok) {
-                    if (ok) SystemNavigator.pop();
+                    if (ok) Desktop.quit();
                   });
                 }
                 if (v == 'lang') {
@@ -1164,22 +1838,32 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
               },
               itemBuilder: (_) => [
                 if (_working != null) _iconItem('save', Icons.save, S.of(context).saveMenu),
+                if (_history.isNotEmpty) _iconItem('undoList', Icons.history, S.of(context).undoChanges),
                 PopupMenuItem(value: 'goto', child: Text(S.of(context).goToPageMenu)),
                 _iconItem('sign', Icons.draw, S.of(context).signDocument),
                 _iconItem('markup', Icons.format_color_text, S.of(context).markup),
+                _iconItem('text', Icons.text_fields, S.of(context).insertText),
                 _iconItem('copyPage', Icons.copy, S.of(context).copyPage),
-                _iconItem('copyArea', Icons.crop, S.of(context).copyArea),
+                _iconItem('copyArea', Icons.crop, S.of(context).copyAreaImage),
                 _iconItem('delete', Icons.delete_outline, S.of(context).deletePages),
                 _iconItem('translateArea', Icons.translate, S.of(context).translateArea),
-                _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
+                if (DocTranslator.inApp) _iconItem('translateDoc', Icons.g_translate, S.of(context).translateDoc),
+                _iconItem('ocr', Icons.document_scanner, S.of(context).ocrArea),
+                if (_beforeTranslation != null)
+                  _iconItem(
+                    'original',
+                    Icons.compare,
+                    _showOriginal ? S.of(context).showTranslated : S.of(context).showOriginal,
+                  ),
                 const PopupMenuDivider(),
                 CheckedPopupMenuItem(
                   value: 'cover',
-                  checked: _coverAlone,
+                  checked: _twoPage && _coverAlone,
                   enabled: _twoPage,
                   child: Text(S.of(context).coverAlone),
                 ),
                 CheckedPopupMenuItem(value: 'rtl', checked: _rtl, child: Text(S.of(context).rtlPages)),
+                PopupMenuItem(value: 'flip', child: Text('${S.of(context).flipEffect}…')),
                 CheckedPopupMenuItem(
                   value: 'night',
                   checked: _settings.nightMode,
@@ -1197,6 +1881,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 PopupMenuItem(value: 'sound', child: Text('${S.of(context).flipSoundMenu}…')),
                 PopupMenuItem(value: 'ambient', child: Text('${S.of(context).ambientMenu}…')),
                 PopupMenuItem(value: 'lang', child: Text('${S.of(context).language}…')),
+                PopupMenuItem(value: 'licenses', child: Text(S.of(context).licenses)),
                 const PopupMenuDivider(),
                 PopupMenuItem(value: 'files', child: Text(S.of(context).otherFile)),
                 PopupMenuItem(value: 'exit', child: Text(S.of(context).exitApp)),
@@ -1213,11 +1898,76 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(icon), title: Text(text)),
   );
 
+  /// "Show original" / "Show translation" while a translation is unsaved.
+  Widget _originalSwitch() {
+    final s = S.of(context);
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: _controlsVisible && _spreads.length > 1 ? 76 : 16,
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_showOriginal)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)),
+                  child: Text(s.viewingOriginal, style: const TextStyle(fontSize: 12, color: Colors.amberAccent)),
+                ),
+              FilledButton.tonalIcon(
+                icon: Icon(_showOriginal ? Icons.translate : Icons.compare),
+                label: Text(_showOriginal ? s.showTranslated : s.showOriginal),
+                onPressed: _idle ? _toggleOriginal : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Shows spread [i] at once (slider, scroll bar), without a page turn.
+  void _showIndex(int i) {
+    if (_flip != null || _anim.isAnimating || i == _index) return;
+    setState(() {
+      _index = i.clamp(0, _spreads.length - 1);
+      _zoom = 1;
+      _pan = Offset.zero;
+    });
+    _prefetch();
+  }
+
+  /// The scroll bar on the right: drag to move quickly through long books.
+  /// It sits just inside the right edge strip, which opens the edge menu.
+  Widget _scroller() {
+    final pad = MediaQuery.paddingOf(context);
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      top: pad.top + 72,
+      bottom: pad.bottom + 72,
+      right: _controlsVisible ? pad.right + 26 + (_rails ? _railWidth : 0) : -80,
+      width: 36,
+      child: PageScroller(
+        count: _spreads.length,
+        index: _index,
+        labelFor: _labelFor,
+        onChanged: _showIndex,
+        onEnd: _saveProgress,
+        tooltip: S.of(context).goToPageMenu,
+      ),
+    );
+  }
+
   Widget _bottomBar() => AnimatedPositioned(
     duration: const Duration(milliseconds: 200),
     bottom: _controlsVisible ? 0 : -120,
-    left: 0,
-    right: 0,
+    // On Windows the bar sits between the icon rails, so neither hides the other.
+    left: _rails ? _railWidth : 0,
+    right: _rails ? _railWidth : 0,
     // The slider and arrows follow the page-turn direction, not the menu
     // language.
     child: Directionality(
@@ -1236,20 +1986,16 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                   max: (_spreads.length - 1).toDouble(),
                   divisions: _spreads.length - 1,
                   label: _pageLabel,
-                  onChanged: _flip != null
-                      ? null
-                      : (v) {
-                          setState(() {
-                            _index = v.round();
-                            _zoom = 1;
-                            _pan = Offset.zero;
-                          });
-                          _prefetch();
-                        },
+                  onChanged: _flip != null ? null : (v) => _showIndex(v.round()),
                   onChangeEnd: (_) => _saveProgress(),
                 ),
               ),
               IconButton(icon: const Icon(Icons.chevron_right), onPressed: _hasNext ? () => _turn(true) : null),
+              IconButton(
+                tooltip: S.of(context).goToPageMenu,
+                icon: const Icon(Icons.pin_outlined),
+                onPressed: _askPage,
+              ),
             ],
           ),
         ),
@@ -1294,6 +2040,83 @@ class _DeletePagesDialogState extends State<_DeletePagesDialog> {
           child: Text(s.delete),
         ),
       ],
+    );
+  }
+}
+
+/// The undo list: newest step first. Tapping a step marks it and every
+/// later step; the button undoes them all.
+class _UndoSheet extends StatefulWidget {
+  const _UndoSheet({required this.steps});
+  final List<({String label, DateTime at})> steps;
+
+  @override
+  State<_UndoSheet> createState() => _UndoSheetState();
+}
+
+class _UndoSheetState extends State<_UndoSheet> {
+  late int _from = widget.steps.length - 1;
+
+  String _time(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final n = widget.steps.length;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(s.undoChanges, style: Theme.of(context).textTheme.titleMedium),
+              subtitle: Text(s.undoHint),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (var i = n - 1; i >= 0; i--)
+                    ListTile(
+                      key: ValueKey('undo_$i'),
+                      selected: i >= _from,
+                      leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
+                      title: Text(
+                        widget.steps[i].label,
+                        style: i >= _from ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+                      ),
+                      trailing: Text(_time(widget.steps[i].at), style: const TextStyle(fontSize: 12)),
+                      onTap: () => setState(() => _from = i),
+                    ),
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.description_outlined),
+                    title: Text(s.undoOpened, style: const TextStyle(color: Colors.white60)),
+                    onTap: () => setState(() => _from = 0),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.undo),
+                    label: Text(s.undoSteps(n - _from)),
+                    onPressed: () => Navigator.pop(context, _from),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

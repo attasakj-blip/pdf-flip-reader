@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'l10n.dart';
 import 'library_screen.dart' show folderLabel;
+import 'desktop.dart';
 import 'native_files.dart';
 import 'settings.dart';
 
@@ -89,9 +90,47 @@ Future<SavedBook?> saveEdited(
   }
 }
 
+/// Saves [path] (a new PDF made from [book], such as a translation) as a
+/// new file: the user picks the folder and name, starting from [suggested].
+/// It joins the recent list. Returns null if the user backs out.
+Future<RecentBook?> saveAsNewFile(
+  BuildContext context,
+  Settings settings,
+  RecentBook book,
+  String path, {
+  required String suggested,
+}) async {
+  final s = S.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final ref = await NativeFiles.createPdf(suggested);
+    if (ref == null) return null;
+    final made = (await _asNew(book, path, ref)).book;
+    // A different, shorter book: start at its first page.
+    final saved = RecentBook(
+      name: made.name,
+      folder: made.folder,
+      localPath: made.localPath,
+      rtl: book.rtl,
+      uri: made.uri,
+    );
+    settings.saveRecents([saved, ...settings.recents.where((b) => b.localPath != saved.localPath)]);
+    messenger.showSnackBar(SnackBar(content: Text(s.savedAs(saved.name))));
+    return saved;
+  } on MissingPluginException {
+    // No file picker (tests): keep it in the app only.
+    final local = await _localCopy(path, suggested);
+    final copy = RecentBook(name: suggested, folder: '', localPath: local, lastPage: 0);
+    settings.saveRecents([copy, ...settings.recents]);
+    return copy;
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(s.saveFailed(e))));
+    return null;
+  }
+}
+
 Future<String> _localCopy(String edited, String name) async {
-  final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/books');
-  await dir.create(recursive: true);
+  final dir = await Desktop.booksDir();
   final path = '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_$name';
   await File(edited).copy(path);
   return path;

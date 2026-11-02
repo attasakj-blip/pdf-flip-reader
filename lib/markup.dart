@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'edit_tools.dart' show PageSlot, ToolBar;
 import 'l10n.dart';
 import 'pdf_edit.dart' show PageChar, PageRect, Stamp;
+import 'text_box.dart' show TextNote, noteRect, paintNotes;
 
 enum MarkTool { pen, highlighter, textHighlight, line, rect, circle, ellipse }
 
@@ -43,6 +44,10 @@ class Mark {
 
   /// For [MarkTool.textHighlight]: one box per line of highlighted text.
   final List<PageRect> rects;
+
+  Mark copy() => Mark(page: page, tool: tool, color: color, width: width, dashed: dashed)
+    ..points.addAll(points)
+    ..rects.addAll(rects);
 
   bool get isShape => tool.index >= MarkTool.line.index;
   bool get isEmpty => tool == MarkTool.textHighlight ? rects.isEmpty : points.isEmpty;
@@ -105,6 +110,61 @@ class Mark {
         path.addOval(Rect.fromPoints(a, b));
     }
     canvas.drawPath(dashed && !highlight ? _dash(path, paint.strokeWidth) : path, paint);
+  }
+
+  /// Whether a circle of [radius] pixels at [p] touches the mark, with the
+  /// page drawn at [page] on screen.
+  bool touches(Offset p, double radius, Rect page) {
+    Offset at(Offset f) => Offset(page.left + f.dx * page.width, page.top + f.dy * page.height);
+    final reach = radius + width * page.width / 2;
+    if (tool == MarkTool.textHighlight) {
+      for (final r in rects) {
+        final box = Rect.fromLTWH(
+          page.left + r.left * page.width,
+          page.top + r.top * page.height,
+          r.width * page.width,
+          r.height * page.height,
+        );
+        if (box.inflate(radius).contains(p)) return true;
+      }
+      return false;
+    }
+    if (points.isEmpty) return false;
+    if (!isShape) {
+      for (var i = 0; i < points.length; i++) {
+        final a = at(points[i]), b = at(points[math.min(i + 1, points.length - 1)]);
+        if (_segmentDistance(p, a, b) <= reach) return true;
+      }
+      return false;
+    }
+    return outlineDistance(p, page) <= reach;
+  }
+
+  /// Screen distance from [p] to a shape's outline.
+  double outlineDistance(Offset p, Rect page) {
+    Offset at(Offset f) => Offset(page.left + f.dx * page.width, page.top + f.dy * page.height);
+    final a = at(points.first), b = at(points.last);
+    switch (tool) {
+      case MarkTool.line:
+        return _segmentDistance(p, a, b);
+      case MarkTool.rect:
+        final r = Rect.fromPoints(a, b);
+        return [
+          _segmentDistance(p, r.topLeft, r.topRight),
+          _segmentDistance(p, r.topRight, r.bottomRight),
+          _segmentDistance(p, r.bottomRight, r.bottomLeft),
+          _segmentDistance(p, r.bottomLeft, r.topLeft),
+        ].reduce(math.min);
+      case MarkTool.circle:
+      case MarkTool.ellipse:
+        final r = Rect.fromPoints(a, b);
+        final rx = math.max(r.width / 2, 0.5), ry = math.max(r.height / 2, 0.5);
+        final d = p - r.center;
+        final k = math.sqrt(d.dx * d.dx / (rx * rx) + d.dy * d.dy / (ry * ry));
+        return (k - 1).abs() * math.min(rx, ry);
+      default:
+        return double.infinity;
+    }
   }
 
   /// Box around the mark, in page fractions, with room for the line width.
@@ -178,6 +238,17 @@ List<PageRect> highlightRects(List<PageChar> chars, Offset a, Offset b) {
   ];
 }
 
+double _segmentDistance(Offset p, Offset a, Offset b) {
+  final ab = b - a;
+  final len2 = ab.dx * ab.dx + ab.dy * ab.dy;
+  if (len2 == 0) return (p - a).distance;
+  final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(0.0, 1.0);
+  return (p - (a + ab * t)).distance;
+}
+
+/// Eraser sizes (radius in pixels): small, medium, large.
+const eraserSizes = [8.0, 18.0, 34.0];
+
 Path _dash(Path source, double width) {
   final dash = math.max(4.0, width * 3), gap = math.max(3.0, width * 2);
   final out = Path();
@@ -242,7 +313,20 @@ class MarkupLayer extends StatefulWidget {
     required this.onDone,
     required this.onCancel,
     this.pageChars,
+    this.erasing = false,
+    this.canFinishEmpty = false,
+    this.notes,
   });
+
+  /// Text boxes taken back from saved steps: shown, and the eraser removes
+  /// the ones it touches.
+  final List<TextNote>? notes;
+
+  /// Done stays available with no marks left (they were all erased).
+  final bool canFinishEmpty;
+
+  /// Start with the eraser rather than the pen.
+  final bool erasing;
 
   /// Pages as they sit on screen right now (zoom included).
   final List<PageSlot> slots;
@@ -268,6 +352,19 @@ class _MarkupLayerState extends State<MarkupLayer> {
   Color _hiColor = markColors[7];
   int _width = 2;
   bool _dashed = false;
+
+  // The eraser takes out whole marks it touches.
+  late bool _erasing = widget.erasing;
+  int _eraserSize = 1;
+  Offset? _eraserAt;
+
+  // A shape just drawn (or picked by its outline) can still be moved and
+  // resized. Choosing another tool or Done keeps it as it is.
+  Mark? _chosen;
+  // What a drag on the chosen shape does: -1 move, 0/1 line ends,
+  // 0-3 box corners (top-left, top-right, bottom-right, bottom-left).
+  int? _grip;
+  static const _gripReach = 18.0;
 
   // Page text for highlighting, loaded when first needed.
   final _chars = <int, List<PageChar>>{};
@@ -321,6 +418,11 @@ class _MarkupLayerState extends State<MarkupLayer> {
     }
     if (_waitForLift) return;
     final p = d.localFocalPoint;
+    if (_erasing) {
+      _erase(p);
+      return;
+    }
+    if (_startEditing(p)) return;
     _slot = null;
     for (final s in widget.slots) {
       if (s.rect.contains(p)) _slot = s;
@@ -365,7 +467,131 @@ class _MarkupLayerState extends State<MarkupLayer> {
     });
   }
 
+  PageSlot? _slotOfPage(int page) {
+    for (final s in widget.slots) {
+      if (s.page == page) return s;
+    }
+    return null;
+  }
+
+  /// Corners (or line ends) of a shape on screen.
+  List<Offset> _grips(Mark m, Rect page) {
+    Offset at(Offset f) => Offset(page.left + f.dx * page.width, page.top + f.dy * page.height);
+    final a = at(m.points.first), b = at(m.points.last);
+    if (m.tool == MarkTool.line) return [a, b];
+    final r = Rect.fromPoints(a, b);
+    return [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft];
+  }
+
+  /// A press on the chosen shape's grips or body starts moving or resizing
+  /// it; a press on another shape's outline chooses that one. Anywhere else
+  /// lets the chosen shape go and returns false (draw as usual).
+  bool _startEditing(Offset p) {
+    final m = _chosen;
+    if (m != null) {
+      final s = _slotOfPage(m.page);
+      if (s != null) {
+        final g = _grips(m, s.rect);
+        for (var i = 0; i < g.length; i++) {
+          if ((g[i] - p).distance <= _gripReach) {
+            _grip = i;
+            _start = p;
+            return true;
+          }
+        }
+        final box = Rect.fromPoints(g.first, g[g.length == 2 ? 1 : 2]).inflate(_gripReach);
+        if (box.contains(p) || m.outlineDistance(p, s.rect) <= _gripReach) {
+          _grip = -1;
+          _start = p;
+          return true;
+        }
+      }
+    }
+    // Pick up an earlier shape by its outline.
+    for (final o in widget.marks.reversed) {
+      if (!o.isShape) continue;
+      final s = _slotOfPage(o.page);
+      if (s != null && o.outlineDistance(p, s.rect) <= 10) {
+        setState(() => _chosen = o);
+        _grip = -1;
+        _start = p;
+        return true;
+      }
+    }
+    if (_chosen != null) setState(() => _chosen = null);
+    _grip = null;
+    return false;
+  }
+
+  void _editUpdate(Offset p) {
+    final m = _chosen, g = _grip;
+    if (m == null || g == null) return;
+    final s = _slotOfPage(m.page);
+    if (s == null) return;
+    final r = s.rect;
+    Offset frac(Offset q) => Offset((q.dx - r.left) / r.width, (q.dy - r.top) / r.height);
+    setState(() {
+      if (g == -1) {
+        final d = p - _start;
+        final f = Offset(d.dx / r.width, d.dy / r.height);
+        for (var i = 0; i < m.points.length; i++) {
+          m.points[i] += f;
+        }
+        _start = p;
+      } else if (m.tool == MarkTool.line) {
+        m.points[g == 0 ? 0 : m.points.length - 1] = frac(p);
+      } else {
+        final grips = _grips(m, r);
+        final fixed = grips[(g + 2) % 4];
+        var q = p;
+        if (m.tool == MarkTool.circle) {
+          final dx = q.dx - fixed.dx, dy = q.dy - fixed.dy;
+          final side = math.max(dx.abs(), dy.abs());
+          q = fixed + Offset(side * (dx == 0 ? 1 : dx.sign), side * (dy == 0 ? 1 : dy.sign));
+        }
+        m.points
+          ..[0] = frac(fixed)
+          ..[m.points.length - 1] = frac(q);
+      }
+    });
+  }
+
+  void _erase(Offset p) {
+    final r = eraserSizes[_eraserSize];
+    final hit = <Mark>[];
+    for (final m in widget.marks) {
+      final s = _slotOfPage(m.page);
+      if (s != null && m.touches(p, r, s.rect)) hit.add(m);
+    }
+    setState(() {
+      _eraserAt = p;
+      widget.marks.removeWhere(hit.contains);
+      if (hit.contains(_chosen)) _chosen = null;
+      widget.notes?.removeWhere((n) {
+        final s = _slotOfPage(n.page);
+        return s != null && noteRect(n, s.rect).inflate(r).contains(p);
+      });
+    });
+  }
+
+  void _setTool(MarkTool t) {
+    setState(() {
+      _tool = t;
+      _erasing = false;
+      _chosen = null; // keeps the chosen shape as it is
+    });
+    _loadChars();
+  }
+
   void _onUpdate(ScaleUpdateDetails d) {
+    if (!_zooming && _erasing) {
+      _erase(d.localFocalPoint);
+      return;
+    }
+    if (!_zooming && _grip != null) {
+      _editUpdate(d.localFocalPoint);
+      return;
+    }
     if (_zooming) {
       final z = (_zoomAtStart * d.scale).clamp(1.0, 5.0);
       final anchor = (_focalAtStart - _panAtStart) / _zoomAtStart;
@@ -396,9 +622,12 @@ class _MarkupLayerState extends State<MarkupLayer> {
 
   void _onEnd(ScaleEndDetails d) {
     final m = _drawing;
+    _grip = null;
     // A tap with a shape tool leaves nothing worth keeping.
     if (m != null && (m.isEmpty || (m.isShape && m.points.first == m.points.last))) {
       setState(() => widget.marks.remove(m));
+    } else if (m != null && m.isShape) {
+      setState(() => _chosen = m); // ready to be moved or resized
     }
     if (_zooming && d.pointerCount > 0) _waitForLift = true;
     if (d.pointerCount == 0) _waitForLift = false;
@@ -448,13 +677,12 @@ class _MarkupLayerState extends State<MarkupLayer> {
     final s = S.of(context);
     Widget tool(MarkTool t, Widget icon, String tip) => IconButton(
       tooltip: tip,
-      isSelected: _tool == t,
-      style: IconButton.styleFrom(backgroundColor: _tool == t ? Colors.lightBlueAccent.withValues(alpha: 0.3) : null),
+      style: IconButton.styleFrom(
+        backgroundColor: _tool == t && !_erasing ? Colors.lightBlueAccent.withValues(alpha: 0.3) : null,
+      ),
       icon: icon,
-      onPressed: () {
-        setState(() => _tool = t);
-        _loadChars();
-      },
+      isSelected: _tool == t && !_erasing,
+      onPressed: () => _setTool(t),
     );
     return Stack(
       children: [
@@ -464,7 +692,23 @@ class _MarkupLayerState extends State<MarkupLayer> {
             onScaleStart: _onStart,
             onScaleUpdate: _onUpdate,
             onScaleEnd: _onEnd,
-            child: CustomPaint(painter: _MarksPainter(widget.marks, widget.slots)),
+            child: MouseRegion(
+              cursor: _erasing ? SystemMouseCursors.none : MouseCursor.defer,
+              onHover: _erasing ? (e) => setState(() => _eraserAt = e.localPosition) : null,
+              onExit: (_) => setState(() => _eraserAt = null),
+              child: CustomPaint(
+                painter: _MarksPainter(
+                  widget.marks,
+                  widget.slots,
+                  notes: widget.notes ?? const [],
+                  chosen: _chosen,
+                  grips: _chosen == null || _slotOfPage(_chosen!.page) == null
+                      ? const []
+                      : _grips(_chosen!, _slotOfPage(_chosen!.page)!.rect),
+                  eraser: _erasing && _eraserAt != null ? (_eraserAt!, eraserSizes[_eraserSize]) : null,
+                ),
+              ),
+            ),
           ),
         ),
         Positioned(
@@ -475,7 +719,9 @@ class _MarkupLayerState extends State<MarkupLayer> {
             hint: s.markHint,
             confirm: s.done,
             onCancel: widget.onCancel,
-            onConfirm: widget.marks.isEmpty ? null : widget.onDone,
+            onConfirm: widget.marks.isEmpty && (widget.notes?.isEmpty ?? true) && !widget.canFinishEmpty
+                ? null
+                : widget.onDone,
           ),
         ),
         Positioned(
@@ -497,6 +743,29 @@ class _MarkupLayerState extends State<MarkupLayer> {
                     tool(MarkTool.rect, const Icon(Icons.crop_square), s.toolRect),
                     tool(MarkTool.circle, const Icon(Icons.circle_outlined), s.toolCircle),
                     tool(MarkTool.ellipse, const _OvalIcon(), s.toolEllipse),
+                    IconButton(
+                      tooltip: s.eraser,
+                      style: IconButton.styleFrom(
+                        backgroundColor: _erasing ? Colors.lightBlueAccent.withValues(alpha: 0.3) : null,
+                      ),
+                      onPressed: () => setState(() {
+                        _erasing = true;
+                        _chosen = null;
+                      }),
+                      icon: const Icon(Icons.auto_fix_normal),
+                    ),
+                    if (_erasing)
+                      SegmentedButton<int>(
+                        showSelectedIcon: false,
+                        style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                        segments: [
+                          ButtonSegment(value: 0, label: Text(s.sizeSmall)),
+                          ButtonSegment(value: 1, label: Text(s.sizeMedium)),
+                          ButtonSegment(value: 2, label: Text(s.sizeLarge)),
+                        ],
+                        selected: {_eraserSize},
+                        onSelectionChanged: (v) => setState(() => _eraserSize = v.first),
+                      ),
                     const SizedBox(height: 32, child: VerticalDivider()),
                     IconButton(
                       tooltip: s.color,
@@ -587,20 +856,60 @@ class _OvalIcon extends StatelessWidget {
   );
 }
 
+/// Shows [marks] without letting them be changed (under the text tool).
+CustomPainter marksPainter(List<Mark> marks, List<PageSlot> slots) => _MarksPainter(marks, slots);
+
 class _MarksPainter extends CustomPainter {
-  _MarksPainter(this.marks, this.slots);
+  _MarksPainter(this.marks, this.slots, {this.notes = const [], this.chosen, this.grips = const [], this.eraser});
   final List<Mark> marks;
+  final List<TextNote> notes;
   final List<PageSlot> slots;
+  final Mark? chosen;
+  final List<Offset> grips;
+  final (Offset, double)? eraser;
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final s in slots) {
       canvas.save();
       canvas.clipRect(s.rect);
+      paintNotes(canvas, notes, s.page, s.rect);
       for (final m in marks) {
         if (m.page == s.page) m.paint(canvas, s.rect);
       }
       canvas.restore();
+    }
+    // The chosen shape: a dashed box and round grips.
+    if (chosen != null && grips.isNotEmpty) {
+      final line = Paint()
+        ..color = Colors.lightBlueAccent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      if (grips.length == 4) {
+        canvas.drawPath(_dash(Path()..addRect(Rect.fromPoints(grips[0], grips[2]).inflate(4)), 1.2), line);
+      }
+      for (final g in grips) {
+        canvas.drawCircle(g, 7, Paint()..color = Colors.lightBlueAccent);
+        canvas.drawCircle(
+          g,
+          7,
+          Paint()
+            ..color = Colors.black54
+            ..style = PaintingStyle.stroke,
+        );
+      }
+    }
+    final e = eraser;
+    if (e != null) {
+      canvas.drawCircle(e.$1, e.$2, Paint()..color = Colors.white.withValues(alpha: 0.25));
+      canvas.drawCircle(
+        e.$1,
+        e.$2,
+        Paint()
+          ..color = Colors.black87
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
     }
   }
 

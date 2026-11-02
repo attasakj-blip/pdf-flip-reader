@@ -4,7 +4,7 @@ import 'flip_sounds.dart';
 import 'l10n.dart';
 import 'settings.dart';
 
-/// Bottom sheet: switch the page-turn sound on or off, pick one of ten
+/// Bottom sheet: switch the page-turn sound on or off, pick one of three
 /// sounds (tapping one plays it) and set the volume.
 Future<void> showSoundSettings(BuildContext context, Settings settings, FlipSounds sounds) {
   return showModalBottomSheet(

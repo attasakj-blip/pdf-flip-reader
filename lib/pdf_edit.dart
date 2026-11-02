@@ -60,6 +60,58 @@ class PdfEditor {
         }
       });
 
+  /// A new PDF at [dest] holding only [pages] of [src] (in their order in
+  /// the book), with all of their own text taken out and [stamps] (the
+  /// translations) drawn in its place. Pictures, tables, lines and colours
+  /// stay as they were.
+  static Future<void> translatedCopy(String src, String dest, List<int> pages, List<Stamp> stamps) =>
+      _edit(src, dest, (handle) {
+        final document = pd.FPDF_DOCUMENT.fromAddress(handle);
+        final keep = pages.toSet();
+        // Only pages that got a translation lose their own text (a page in a
+        // language that couldn't be told, or a scan, stays as it was).
+        for (final i in stamps.map((st) => st.page).toSet()) {
+          final page = pdfium.FPDF_LoadPage(document, i);
+          if (page == nullptr) continue;
+          try {
+            for (var k = pdfium.FPDFPage_CountObjects(page) - 1; k >= 0; k--) {
+              final o = pdfium.FPDFPage_GetObject(page, k);
+              final type = pdfium.FPDFPageObj_GetType(o);
+              if (type == pd.FPDF_PAGEOBJ_TEXT) {
+                if (pdfium.FPDFPage_RemoveObject(page, o) != 0) pdfium.FPDFPageObj_Destroy(o);
+              } else if (type == pd.FPDF_PAGEOBJ_FORM) {
+                _removeFormText(o);
+              }
+            }
+            pdfium.FPDFPage_GenerateContent(page);
+          } finally {
+            pdfium.FPDF_ClosePage(page);
+          }
+        }
+        for (final st in stamps) {
+          _stamp(handle, st.page, st.rgba, st.w, st.h, st.rect);
+        }
+        final count = pdfium.FPDF_GetPageCount(document);
+        for (var i = count - 1; i >= 0; i--) {
+          if (!keep.contains(i)) pdfium.FPDFPage_Delete(document, i);
+        }
+      });
+
+  /// Takes the text out of a form object (a reusable piece of a page, such
+  /// as a template), and out of forms inside it.
+  static void _removeFormText(pd.FPDF_PAGEOBJECT form) {
+    for (var k = pdfium.FPDFFormObj_CountObjects(form) - 1; k >= 0; k--) {
+      final o = pdfium.FPDFFormObj_GetObject(form, k);
+      if (o == nullptr) continue;
+      final type = pdfium.FPDFPageObj_GetType(o);
+      if (type == pd.FPDF_PAGEOBJ_TEXT) {
+        if (pdfium.FPDFFormObj_RemoveObject(form, o) != 0) pdfium.FPDFPageObj_Destroy(o);
+      } else if (type == pd.FPDF_PAGEOBJ_FORM) {
+        _removeFormText(o);
+      }
+    }
+  }
+
   /// Paragraphs of text on page [pageIndex] (0-based), in reading order.
   /// Empty for scanned pages, which carry pictures of text only.
   static Future<List<TextBlock>> textBlocks(String path, int pageIndex) =>
@@ -297,6 +349,23 @@ class TextChar {
   bool get blank => ch.trim().isEmpty || r <= l || b <= t;
 }
 
+/// Marks drawn above or below a letter (Thai vowels and tone marks, and
+/// other combining marks, also the shifted Thai forms some fonts keep in
+/// the private-use area). Their boxes sit above or below the line, so they
+/// must never start a new line or set its height.
+bool isMark(String ch) {
+  if (ch.isEmpty) return false;
+  final c = ch.runes.first;
+  return c == 0x0E31 ||
+      (c >= 0x0E34 && c <= 0x0E3A) ||
+      (c >= 0x0E47 && c <= 0x0E4E) ||
+      c == 0x0EB1 ||
+      (c >= 0x0EB4 && c <= 0x0EBC) ||
+      (c >= 0x0EC8 && c <= 0x0ECD) ||
+      (c >= 0xF700 && c <= 0xF71A) ||
+      (c >= 0x0300 && c <= 0x036F);
+}
+
 /// Scripts written without spaces between words.
 bool _noSpaces(String ch) {
   if (ch.isEmpty) return false;
@@ -324,6 +393,10 @@ List<PageChar> lineChars(List<TextChar> chars) {
       out.add((box: box, line: math.max(0, line), blank: true));
       continue;
     }
+    if (isMark(c.ch) && line >= 0) {
+      out.add((box: box, line: line, blank: false));
+      continue;
+    }
     final y = (c.t + c.b) / 2, h = c.b - c.t;
     final newLine = cy == null || (y - cy).abs() > 0.6 * math.max(h, lh!) || c.l < right! - 2 * math.max(h, lh);
     if (newLine) {
@@ -349,13 +422,16 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
       lineMid = null;
       continue;
     }
-    if (c.blank) {
+    if (c.blank || (isMark(c.ch) && cur.isNotEmpty)) {
       if (cur.isNotEmpty) cur.add(c);
       continue;
     }
     final mid = (c.t + c.b) / 2, hh = c.b - c.t;
-    final last = cur.lastWhere((x) => !x.blank, orElse: () => c);
-    final newLine = lineMid != null && ((mid - lineMid).abs() > 0.6 * lineH! || c.l < last.l - 3 * lineH);
+    final last = cur.lastWhere((x) => !x.blank && !isMark(x.ch), orElse: () => c);
+    // A new line also starts after a wide gap: the next table cell or column.
+    final newLine =
+        lineMid != null &&
+        ((mid - lineMid).abs() > 0.6 * lineH! || c.l < last.l - 3 * lineH || (c.l - last.r) > 2.5 * lineH);
     if (newLine) {
       lines.add(cur);
       cur = [];
@@ -371,7 +447,7 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
   }
   if (cur.isNotEmpty) lines.add(cur);
 
-  final boxes = <({String text, double l, double t, double r, double b, double h})>[];
+  final boxes = <({String text, double l, double t, double r, double b, double h, double m})>[];
   for (final line in lines) {
     final ink = line.where((c) => !c.blank).toList();
     if (ink.isEmpty) continue;
@@ -383,20 +459,35 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
       if (c.b > b) b = c.b;
     }
     final text = line.map((c) => c.ch).join().replaceAll(RegExp(r'\s+'), ' ').trim();
-    boxes.add((text: text, l: l, t: t, r: r, b: b, h: b - t));
+    // Line height from the letters themselves, not marks above or below.
+    final letters = ink.where((c) => !isMark(c.ch)).toList();
+    var lt = t, lb = b;
+    if (letters.isNotEmpty) {
+      lt = letters.map((c) => c.t).reduce(math.min);
+      lb = letters.map((c) => c.b).reduce(math.max);
+    }
+    // The typical letter height: steady from line to line even when one
+    // line happens to have no tall letters or tails (Thai, short lines).
+    final hs = [for (final c in letters) c.b - c.t]..sort();
+    final m = hs.isEmpty ? lb - lt : hs[hs.length ~/ 2];
+    boxes.add((text: text, l: l, t: t, r: r, b: b, h: lb - lt, m: m));
   }
 
   final blocks = <TextBlock>[];
   String? text;
-  late double bl, bt, br, bb, sumH;
+  late double bl, bt, br, bb, sumH, sumM;
   var n = 0;
+  var heights = <double>[];
   void flush() {
     if (text == null) return;
     final pageH = chars.first.pageHeight;
     blocks.add((
       text: text!,
       rect: (left: bl, top: bt, width: br - bl, height: bb - bt),
-      lineHeight: sumH / n * pageH,
+      // From the typical letter height (about half the font size in
+      // both Thai and Latin text), which does not depend on whether a line
+      // happens to have tall letters or tails.
+      lineHeight: (heights..sort())[heights.length ~/ 2] * 2.15 * pageH,
       turns: 0,
     ));
     text = null;
@@ -407,7 +498,7 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
         text != null &&
         x.t - bb < 0.9 * (sumH / n) &&
         x.t > bt &&
-        (x.h - sumH / n).abs() < 0.4 * (sumH / n) &&
+        (x.m - sumM / n).abs() < 0.35 * (sumM / n) &&
         x.l < br &&
         x.r > bl;
     if (!joins) {
@@ -418,6 +509,8 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
       br = x.r;
       bb = x.b;
       sumH = x.h;
+      sumM = x.m;
+      heights = [x.m];
       n = 1;
       continue;
     }
@@ -433,6 +526,8 @@ List<TextBlock> groupBlocks(List<TextChar> chars) {
     if (x.r > br) br = x.r;
     bb = x.b;
     sumH += x.h;
+    sumM += x.m;
+    heights.add(x.m);
     n++;
   }
   flush();

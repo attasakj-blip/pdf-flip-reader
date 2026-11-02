@@ -2,10 +2,10 @@ import 'package:audioplayers/audioplayers.dart';
 
 import 'settings.dart';
 
-/// Number of bundled page-turn sounds. They were synthesised for this
+/// Number of bundled page-turn sounds (soft and few: testers found ten too many). They were synthesised for this
 /// project (see tools/gen_sounds.py), so there are no licensing strings.
 /// Their names are translated in l10n.dart (S.soundName).
-const flipSoundCount = 10;
+const flipSoundCount = 3;
 
 class FlipSounds {
   FlipSounds(this.settings);

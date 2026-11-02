@@ -62,12 +62,13 @@ class AmbientPlayer {
 /// The loop for sound [index], made once and kept in the app's files.
 Future<File> ambientFile(int index) async {
   final dir = Directory('${(await getApplicationSupportDirectory()).path}/ambient');
-  final file = File('${dir.path}/v2_$index.wav');
+  final file = File('${dir.path}/v4_$index.wav');
   if (await file.exists()) return file;
   await dir.create(recursive: true);
-  // Drop the shorter loops of earlier versions.
+  // Drop the loops of earlier sound lists.
   await for (final old in dir.list()) {
-    if (old is File && old.path.split('/').last.startsWith('v1_')) await old.delete().catchError((_) => old);
+    final name = old.path.split('/').last;
+    if (old is File && !name.startsWith('v4_')) await old.delete().catchError((_) => old);
   }
   final bytes = await Isolate.run(() => ambientWav(index));
   final tmp = File('${file.path}.part');
@@ -133,8 +134,15 @@ Future<void> showAmbientSettings(BuildContext context, Settings settings, Ambien
   );
 }
 
-IconData _icon(int i) {
-  if (i <= 14) return Icons.forest;
-  if (i <= 21) return Icons.graphic_eq;
-  return Icons.music_note;
-}
+IconData _icon(int i) => const [
+  Icons.nightlight_round,
+  Icons.waves,
+  Icons.water_drop,
+  Icons.graphic_eq,
+  Icons.air,
+  Icons.music_note,
+  Icons.spa,
+  Icons.self_improvement,
+  Icons.queue_music,
+  Icons.piano,
+][i];
