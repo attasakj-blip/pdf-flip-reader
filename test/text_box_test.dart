@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdf_flip_reader/l10n.dart';
+import 'package:pdf_flip_reader/print_flow.dart';
 import 'package:pdf_flip_reader/text_box.dart';
 
 TextNote note({String text = 'Hello world', int page = 0}) => TextNote(
@@ -134,7 +135,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.format_bold)); // bold for what comes next
     await tester.pump();
     expect(find.byType(AlertDialog), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Place on page'));
     await tester.pumpAndSettle();
     expect(got, isNotNull);
     expect(got!.text, 'สวัสดี hello');
@@ -151,5 +152,49 @@ void main() {
     expect((field.controller! as RichTextController).flags, hasLength(maxNoteLength));
     await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('a new box goes where the page is tapped', (tester) async {
+    final n = note();
+    final notes = [n];
+    TextNote? placing = n;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: const [SDelegate()],
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => TextLayer(
+              slots: const [(page: 0, rect: Rect.fromLTWH(100, 80, 400, 560))],
+              notes: notes,
+              placing: placing,
+              onPlaced: () => setState(() => placing = null),
+              onAdd: () {},
+              onEdit: (_) {},
+              onDone: () {},
+              onCancel: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Tap where the text should go'), findsOneWidget);
+    // Tap near the bottom right of the page.
+    await tester.tapAt(const Offset(400, 500));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(placing, isNull);
+    expect(n.left + n.width / 2, closeTo(0.75, 0.01));
+    expect(n.top, closeTo(0.75, 0.01));
+    expect(find.text('Tap where the text should go'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  test('print page ranges', () {
+    expect(parsePageRange('1-3, 5', 10), [0, 1, 2, 4]);
+    expect(parsePageRange('4-2 2', 10), [1, 2, 3]);
+    expect(parsePageRange('0', 10), isNull);
+    expect(parsePageRange('11', 10), isNull);
+    expect(parsePageRange('a', 10), isNull);
+    expect(parsePageRange('  ', 10), isNull);
   });
 }

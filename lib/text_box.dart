@@ -49,6 +49,19 @@ class TextNote {
   /// Page height / width, for working out the height as a page fraction.
   double aspect;
 
+  TextNote copy() => TextNote(
+    text: text,
+    flags: List.of(flags),
+    font: font,
+    size: size,
+    color: color,
+    page: page,
+    left: left,
+    top: top,
+    width: width,
+    aspect: aspect,
+  );
+
   /// The text as styled spans, with [fontSize] in pixels.
   TextSpan span(double fontSize) => styledSpan(text, flags, _style(fontSize));
 
@@ -371,7 +384,10 @@ class _TextEditorState extends State<_TextEditor> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
-        FilledButton(onPressed: _ctl.text.trim().isEmpty ? null : _ok, child: Text(s.done)),
+        FilledButton(
+          onPressed: _ctl.text.trim().isEmpty ? null : _ok,
+          child: Text(widget.note == null ? s.placeOnPage : s.done),
+        ),
       ],
     );
   }
@@ -389,10 +405,24 @@ class TextLayer extends StatefulWidget {
     required this.onEdit,
     required this.onDone,
     required this.onCancel,
+    this.placing,
+    this.onPlaced,
+    this.hint,
+    this.canFinishEmpty = false,
   });
+
+  /// Done stays available with every box deleted (taken-back boxes).
+  final bool canFinishEmpty;
 
   final List<PageSlot> slots;
   final List<TextNote> notes;
+
+  /// A new box waiting for a tap on the page that says where it goes.
+  final TextNote? placing;
+  final VoidCallback? onPlaced;
+
+  /// Replaces the usual hint in the top bar.
+  final String? hint;
   final VoidCallback onAdd;
   final void Function(TextNote note) onEdit;
   final VoidCallback onDone;
@@ -445,6 +475,27 @@ class _TextLayerState extends State<TextLayer> {
     });
   }
 
+  /// Puts the box being placed with its top middle at [at].
+  void _place(Offset at) {
+    final n = widget.placing;
+    if (n == null) return;
+    PageSlot? slot;
+    for (final s in widget.slots) {
+      if (s.rect.contains(at)) slot = s;
+    }
+    if (slot == null) return;
+    final r = slot.rect;
+    setState(() {
+      n.width = n.width * (_slotOf(n)?.rect.width ?? r.width) / r.width;
+      n.page = slot!.page;
+      n.aspect = r.height / r.width;
+      n.left = ((at.dx - r.left) / r.width - n.width / 2).clamp(0.0, math.max(0.0, 1 - n.width));
+      n.top = ((at.dy - r.top) / r.height).clamp(0.0, 0.95);
+      _chosen = n;
+    });
+    widget.onPlaced?.call();
+  }
+
   void _resize(TextNote n, double dx) {
     final s = _slotOf(n);
     if (s == null) return;
@@ -463,7 +514,16 @@ class _TextLayerState extends State<TextLayer> {
       children: [
         // Taps on the page drop the choice; page-turn gestures are swallowed.
         Positioned.fill(
-          child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => setState(() => _chosen = null)),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (d) {
+              if (widget.placing != null) {
+                _place(d.localPosition);
+              } else {
+                setState(() => _chosen = null);
+              }
+            },
+          ),
         ),
         for (final (n, r) in shown) ...[
           Positioned.fromRect(
@@ -474,7 +534,11 @@ class _TextLayerState extends State<TextLayer> {
               child: GestureDetector(
                 onTap: () => setState(() => _chosen = n),
                 onDoubleTap: () => widget.onEdit(n),
-                onPanStart: (_) => setState(() => _chosen = n),
+                onPanStart: (_) {
+                  setState(() => _chosen = n);
+                  // Dragging the new box also says where it goes.
+                  if (identical(n, widget.placing)) widget.onPlaced?.call();
+                },
                 onPanUpdate: (d) => _move(n, d.delta),
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -549,7 +613,18 @@ class _TextLayerState extends State<TextLayer> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                 child: Row(
                   children: [
-                    Expanded(child: Text(s.textHint, style: const TextStyle(fontSize: 13))),
+                    Expanded(
+                      child: widget.placing != null
+                          ? Text(
+                              s.tapToPlace,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amberAccent,
+                              ),
+                            )
+                          : Text(widget.hint ?? s.textHint, style: const TextStyle(fontSize: 13)),
+                    ),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.add, size: 18),
                       label: Text(s.addText),
@@ -557,7 +632,10 @@ class _TextLayerState extends State<TextLayer> {
                     ),
                     const SizedBox(width: 8),
                     TextButton(onPressed: widget.onCancel, child: Text(s.cancel)),
-                    FilledButton(onPressed: widget.notes.isEmpty ? null : widget.onDone, child: Text(s.done)),
+                    FilledButton(
+                      onPressed: widget.notes.isEmpty && !widget.canFinishEmpty ? null : widget.onDone,
+                      child: Text(s.done),
+                    ),
                   ],
                 ),
               ),

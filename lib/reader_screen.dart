@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:printing/printing.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'ambient.dart';
@@ -25,6 +26,7 @@ import 'page_cache.dart';
 import 'page_clipboard.dart';
 import 'page_scroller.dart';
 import 'pdf_edit.dart';
+import 'print_flow.dart';
 import 'save_flow.dart';
 import 'settings.dart';
 import 'sound_settings.dart';
@@ -102,6 +104,10 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   // Markup steps taken back while the markup tools are open; Cancel puts
   // them back as they were.
   final _pulled = <_Step>[];
+  // Text boxes written by each text step, to take them back the same way.
+  final _stepNotes = <String, List<TextNote>>{};
+  // A new text box waiting for a tap that says where it goes.
+  TextNote? _placing;
   // Text boxes being placed, and the style the next one starts with.
   final _notes = <TextNote>[];
   final _noteStyle = TextNote(text: '', flags: [], font: '', size: 16, color: const Color(0xFF111111));
@@ -469,6 +475,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
           label: s.copyAreaImage,
           onTap: _fromEdge(() => setState(() => _tool = _Tool.area)),
         ),
+        EdgeMenuItem(icon: Icons.print, label: s.printDocument, onTap: _fromEdge(_print)),
         EdgeMenuItem(icon: Icons.delete_outline, label: s.deletePages, onTap: _fromEdge(_askDelete)),
         if (_history.isNotEmpty)
           EdgeMenuItem(icon: Icons.history, label: s.undoChanges, onTap: _fromEdge(_showUndoList)),
@@ -873,7 +880,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     if (back.isNotEmpty) {
       for (final h in back) {
         final m = _stepMarks[h.path]!;
-        _marks.addAll(m.marks);
+        _marks.addAll(m.marks.map((k) => k.copy()));
         _markAspects.addAll(m.aspects);
       }
       _pulled
@@ -929,11 +936,43 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     return '$tmp/edit_${DateTime.now().microsecondsSinceEpoch}.pdf';
   }
 
-  /// Opens the text window; the new box then goes on the page in view.
+  /// Opens the text window; the new box then goes where the user taps.
+  /// The newest text steps, if nothing else was done after them, come back
+  /// as boxes that can still be moved and changed.
   Future<void> _startText() async {
     if (!_editAllowed()) return;
     _resetZoom();
-    await _addText();
+    final back = <_Step>[];
+    while (_history.isNotEmpty && _stepNotes.containsKey(_history.last.path)) {
+      back.insert(0, _history.removeLast());
+    }
+    if (back.isEmpty) {
+      await _addText();
+      return;
+    }
+    for (final h in back) {
+      _notes.addAll(_stepNotes[h.path]!.map((n) => n.copy()));
+    }
+    _pulled
+      ..clear()
+      ..addAll(back);
+    await _reload(_firstVisiblePage);
+    if (!mounted) return;
+    setState(() => _tool = _Tool.text);
+  }
+
+  /// Leaves the text tool without changes: steps taken back return.
+  Future<void> _cancelText() async {
+    final back = List<_Step>.of(_pulled);
+    _pulled.clear();
+    setState(() {
+      _tool = _Tool.none;
+      _notes.clear();
+      _placing = null;
+    });
+    if (back.isEmpty) return;
+    _history.addAll(back);
+    await _reload(_firstVisiblePage);
   }
 
   Future<void> _addText() async {
@@ -954,6 +993,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
       ..top = (0.35 + 0.06 * onPage).clamp(0.0, 0.85);
     setState(() {
       _notes.add(n);
+      _placing = n;
       _tool = _Tool.text;
     });
   }
@@ -974,19 +1014,62 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
 
   Future<void> _saveText() async {
     final notes = List<TextNote>.of(_notes);
+    final pulled = List<_Step>.of(_pulled);
+    _pulled.clear();
     setState(() {
       _tool = _Tool.none;
       _notes.clear();
+      _placing = null;
     });
-    if (notes.isEmpty) return;
+    // The steps taken back are replaced by this one.
+    for (final h in pulled) {
+      File(h.path).delete().ignore();
+      _stepNotes.remove(h.path);
+    }
+    if (notes.isEmpty) {
+      if (pulled.isNotEmpty) _toast(S.of(context).undoneSteps(pulled.length));
+      return;
+    }
     final stamps = await textStamps(notes);
     if (!mounted) return;
-    await _runEdit(
+    final path = await _runEdit(
       keepPage: notes.first.page,
       suffix: 'text',
       label: S.of(context).stepText(_pageList(notes.map((n) => n.page))),
       edit: (dest) => PdfEditor.stampAll(_path, dest, stamps),
     );
+    if (path != null) _stepNotes[path] = notes.map((n) => n.copy()).toList();
+  }
+
+  /// Prints the book as it is now (with unsaved edits). Android's print
+  /// screen has every choice; on Windows the pages are chosen first.
+  Future<void> _print() async {
+    if (!_idle) return;
+    final s = S.of(context);
+    final total = _cache!.pageCount;
+    var src = _path;
+    String? part;
+    try {
+      if (Desktop.active) {
+        final pages = await showPrintPages(context, current: _slots.map((e) => e.page).toList(), total: total);
+        if (pages == null || !mounted) return;
+        if (pages.length < total) {
+          part = await _scratchPdf();
+          final keep = pages.toSet();
+          await PdfEditor.deletePages(src, part, [
+            for (var i = 0; i < total; i++)
+              if (!keep.contains(i)) i,
+          ]);
+          src = part;
+        }
+      }
+      final bytes = await File(src).readAsBytes();
+      await Printing.layoutPdf(name: _book.name, usePrinterSettings: true, onLayout: (_) async => bytes);
+    } catch (e) {
+      if (mounted) _toast(s.printFailed(e));
+    } finally {
+      if (part != null) File(part).delete().ignore();
+    }
   }
 
   Future<void> _startSigning() async {
@@ -1114,6 +1197,7 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
     }
     _history.clear();
     _stepMarks.clear();
+    _stepNotes.clear();
     _showOriginal = false;
   }
 
@@ -1611,10 +1695,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                     onAdd: _addText,
                     onEdit: _editNote,
                     onDone: _saveText,
-                    onCancel: () => setState(() {
-                      _tool = _Tool.none;
-                      _notes.clear();
-                    }),
+                    onCancel: _cancelText,
+                    placing: _placing,
+                    onPlaced: () => setState(() => _placing = null),
+                    hint: _pulled.isNotEmpty ? S.of(context).textBackHint : null,
+                    canFinishEmpty: _pulled.isNotEmpty,
                   ),
                 ),
               if (_tool == _Tool.translate)

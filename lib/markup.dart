@@ -44,6 +44,10 @@ class Mark {
   /// For [MarkTool.textHighlight]: one box per line of highlighted text.
   final List<PageRect> rects;
 
+  Mark copy() => Mark(page: page, tool: tool, color: color, width: width, dashed: dashed)
+    ..points.addAll(points)
+    ..rects.addAll(rects);
+
   bool get isShape => tool.index >= MarkTool.line.index;
   bool get isEmpty => tool == MarkTool.textHighlight ? rects.isEmpty : points.isEmpty;
 

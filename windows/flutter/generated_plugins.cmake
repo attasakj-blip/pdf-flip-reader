@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   pdfx
+  printing
   url_launcher_windows
 )
 
