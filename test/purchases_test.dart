@@ -78,6 +78,28 @@ void main() {
     expect(allowed, isFalse);
   });
 
+  testWidgets('the snack bar Gold button still opens the offer after leaving the tool screen', (tester) async {
+    await Purchases.load(selling: true);
+    await tester.pumpWidget(MaterialApp(navigatorKey: appNavigator, home: const Scaffold(body: SizedBox())));
+    late BuildContext tool;
+    appNavigator.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (c) {
+          tool = c;
+          return const Scaffold(body: SizedBox());
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(await requireGold(tool, GoldFeature.ocr), isTrue);
+    appNavigator.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(tool.mounted, isFalse);
+    await tester.tap(find.text('Gold'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pagelume Gold'), findsOneWidget);
+  });
+
   test('every language has the Gold texts', () {
     for (final code in S.codes) {
       final s = S(code);

@@ -180,8 +180,16 @@ Future<bool> requireGold(BuildContext context, GoldFeature f) async {
   return p.hasGold;
 }
 
+/// Lets the offer open from a snack bar that outlives the screen it came from.
+final appNavigator = GlobalKey<NavigatorState>();
+
 /// The Gold and Clear offer, with restore.
 Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
+  if (!context.mounted) {
+    final nav = appNavigator.currentContext;
+    if (nav == null || !nav.mounted) return;
+    context = nav;
+  }
   final p = Purchases.instance;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final sub = p.messages.stream.listen((m) {
