@@ -66,6 +66,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   pdf: ^3.11.0
+  # Packs the Windows build into an MSIX for the Microsoft Store.
+  msix: ^3.18.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -117,6 +119,23 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Microsoft Store package (MSIX). The three identity values come from
+# Partner Center > Pagelume > Product identity and must match exactly.
+# The MSIX version comes from "version" above (1.2.0+1 -> 1.2.0.0); raise it
+# for every new Store submission.
+msix_config:
+  display_name: Pagelume
+  publisher_display_name: Pagelume Studio
+  identity_name: PagelumeStudio.Pagelume
+  publisher: CN=6D7E4508-ABA9-446C-B3C4-79B8735C43D3
+  logo_path: windows/store/logo.png
+  file_extension: .pdf
+  languages: en-us, th-th
+  capabilities: internetClient
+  # CI builds the app and adds Tesseract before packing.
+  build_windows: false
+  install_certificate: false
 
 dependency_overrides:
   # image 4.11 calls an archive API that archive 4.0.x (pinned by pdf) lacks.
