@@ -1,7 +1,7 @@
 name: Build Windows app
 on:
   push:
-    branches: [main, claude/project-thread-jtdkdb]
+    branches: [main, claude/project-thread-jtdkdb, claude/project-thread-m1z0kk, claude/microsoft-store-msix]
   workflow_dispatch:
 permissions:
   contents: write
@@ -51,10 +51,37 @@ jobs:
           Copy-Item "$out\*" dist\Pagelume -Recurse
           Compress-Archive -Path dist\Pagelume -DestinationPath dist\Pagelume-windows.zip
           Get-Item dist\Pagelume-windows.zip | Select-Object Name, Length
+      # Microsoft Store packages, made from the same Release folder (so they
+      # carry Tesseract and the runtime DLLs too):
+      #  - Pagelume-store.msix: unsigned, for Partner Center (the Store signs it).
+      #  - Pagelume-msix-test.zip: the same app signed with a throwaway test
+      #    certificate under the Store publisher name, plus that certificate,
+      #    so it can be tried on a PC before it reaches the Store.
+      - name: Make the MSIX packages
+        shell: pwsh
+        run: |
+          dart run msix:create --store --output-path dist --output-name Pagelume-store
+          if (-not (Test-Path dist\Pagelume-store.msix)) { throw 'Store MSIX was not made' }
+          $publisher = 'CN=6D7E4508-ABA9-446C-B3C4-79B8735C43D3'  # must match msix_config
+          $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher -KeyUsage DigitalSignature `
+            -FriendlyName 'Pagelume test package' -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+          $pw = ConvertTo-SecureString -String 'pagelume-test' -Force -AsPlainText
+          Export-PfxCertificate -Cert $cert -FilePath test-cert.pfx -Password $pw | Out-Null
+          New-Item -ItemType Directory -Force dist\msix-test | Out-Null
+          Export-Certificate -Cert $cert -FilePath dist\msix-test\Pagelume-test-certificate.cer | Out-Null
+          dart run msix:create --certificate-path test-cert.pfx --certificate-password pagelume-test `
+            --output-path dist\msix-test --output-name Pagelume-test
+          Remove-Item test-cert.pfx
+          Compress-Archive -Path dist\msix-test\* -DestinationPath dist\Pagelume-msix-test.zip
+          Get-Item dist\*.msix, dist\*.zip | Select-Object Name, Length
       - uses: actions/upload-artifact@v4
         with:
           name: pagelume-windows
-          path: dist/Pagelume-windows.zip
+          path: |
+            dist/Pagelume-windows.zip
+            dist/Pagelume-store.msix
+            dist/Pagelume-msix-test.zip
       # Keep the newest zip on a branch named "windows" (a link that never
       # changes) and as the "windows-app" release (a tag named "windows" would
       # clash with the branch).
@@ -63,7 +90,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir pub && cp dist/Pagelume-windows.zip pub/
+          mkdir pub && cp dist/Pagelume-windows.zip dist/Pagelume-store.msix dist/Pagelume-msix-test.zip pub/
           cd pub
           git init -q -b windows
           git config user.name "github-actions"

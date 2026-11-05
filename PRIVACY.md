@@ -1,6 +1,6 @@
 # Privacy Policy for Pagelume
 
-Last updated: 12 October 2026
+Last updated: 4 November 2026
 
 Pagelume ("the app") is made by Attasak (“I”, “me”). This policy explains what information the app uses.
 
@@ -24,6 +24,12 @@ Where required by law (for example in the European Economic Area and the United 
 ## Purchases
 - Pagelume Gold and Pagelume Clear are bought through Google Play. Google handles the payment; the app never sees your card or bank details. The app only asks Google Play which of these items your Google account owns and remembers the answer on your phone.
 
+## Pagelume for Windows (Microsoft Store)
+- The Windows app has no ads and no tracking. It opens and saves PDF files only where you choose on your PC; nothing is uploaded.
+- Text from scanned pages (OCR) is read on your PC by the Tesseract program included with the app. The first time you use a language, the app downloads its language data from GitHub (raw.githubusercontent.com).
+- "Translate" opens Google Translate in your web browser with the text you selected. What happens there is covered by Google's Privacy Policy.
+- Any purchase made in the Windows app goes through the Microsoft Store, which handles the payment. The app only asks the Store which items your Microsoft account owns.
+
 ## Children
 The app is not directed at children under 13, and I do not knowingly collect personal information from children.
 
@@ -37,7 +43,7 @@ Questions about this policy: attasak.jaree@gmail.com
 
 # นโยบายความเป็นส่วนตัวของ Pagelume
 
-ปรับปรุงล่าสุด: 12 ตุลาคม 2026
+ปรับปรุงล่าสุด: 4 พฤศจิกายน 2026
 
 - ไฟล์ PDF ที่คุณเปิดจะถูกคัดลอกเก็บไว้ในพื้นที่ของแอปบนมือถือของคุณเท่านั้น ไม่มีการอัปโหลดไปที่ใด
 - การตั้งค่าต่างๆ (ภาษา เสียงพลิกหน้า โหมดกลางคืน รายการหนังสือล่าสุด และหน้าที่อ่านค้าง) เก็บไว้ในมือถือของคุณเท่านั้น
@@ -46,5 +52,6 @@ Questions about this policy: attasak.jaree@gmail.com
 - ลายเซ็น ไฟล์ที่แก้ไข และรูปที่คัดลอก อยู่ในเครื่องของคุณ ในตำแหน่งที่คุณเลือกเท่านั้น
 - แอปแสดงโฆษณาแบนเนอร์ที่หน้าเลือกไฟล์ผ่าน Google AdMob ซึ่งอาจเก็บข้อมูลจากอุปกรณ์ เช่น รหัสโฆษณา ตำแหน่งโดยประมาณจาก IP และข้อมูลการดูหรือคลิกโฆษณา ตามนโยบายของ Google (https://policies.google.com/privacy) โฆษณาจำกัดเฉพาะเนื้อหาสำหรับบุคคลทั่วไป
 - Pagelume Gold และ Pagelume Clear ซื้อผ่าน Google Play ซึ่งเป็นผู้จัดการการชำระเงิน แอปไม่เห็นข้อมูลบัตรหรือบัญชีธนาคารของคุณ แอปเพียงถาม Google Play ว่าบัญชีของคุณเป็นเจ้าของรายการใด และจำคำตอบไว้ในเครื่อง
+- Pagelume บน Windows (Microsoft Store) ไม่มีโฆษณาและไม่ติดตามผู้ใช้ เปิดและบันทึกไฟล์เฉพาะตำแหน่งที่คุณเลือกบน PC, OCR ทำในเครื่องด้วยโปรแกรม Tesseract ที่มากับแอป (ครั้งแรกของแต่ละภาษาจะโหลดข้อมูลภาษาจาก GitHub), ปุ่มแปลจะเปิด Google Translate ในเว็บเบราว์เซอร์ และการซื้อในแอป Windows ทำผ่าน Microsoft Store
 - แอปนี้ไม่ได้ออกแบบมาสำหรับเด็กอายุต่ำกว่า 13 ปี
 - ติดต่อ: attasak.jaree@gmail.com
