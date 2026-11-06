@@ -37,6 +37,9 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 # Windows.Services.Store (Pagelume Gold in the Microsoft Store).
 target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib")
+# C++/WinRT needs C++20 coroutines (C++17 would pull in the removed
+# <experimental/coroutine>).
+target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
