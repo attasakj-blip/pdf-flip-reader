@@ -122,10 +122,11 @@ flutter:
 
 # Microsoft Store package (MSIX). The three identity values come from
 # Partner Center > Pagelume > Product identity and must match exactly.
-# The MSIX version comes from "version" above (1.2.0+1 -> 1.2.0.0); raise it
-# for every new Store submission.
+# msix_version must go up for every new Store submission (the last number
+# stays 0). 1.2.0.0 was the first release; 1.2.1.0 adds Pagelume Gold.
 msix_config:
   display_name: Pagelume
+  msix_version: 1.2.1.0
   publisher_display_name: Pagelume Studio
   identity_name: PagelumeStudio.Pagelume
   publisher: CN=6D7E4508-ABA9-446C-B3C4-79B8735C43D3

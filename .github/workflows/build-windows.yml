@@ -1,7 +1,7 @@
 name: Build Windows app
 on:
   push:
-    branches: [main, claude/project-thread-jtdkdb, claude/project-thread-m1z0kk, claude/microsoft-store-msix]
+    branches: [main, claude/project-thread-jtdkdb, claude/project-thread-m1z0kk, claude/microsoft-store-msix, claude/windows-gold]
   workflow_dispatch:
 permissions:
   contents: write
@@ -15,6 +15,10 @@ jobs:
           flutter-version: '3.41.6'
           channel: stable
       - run: flutter pub get
+      # Quick checks before the long build: the code compiles cleanly and the
+      # purchase rules (free tries, Gold, the gift for early Windows users) hold.
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test test/purchases_test.dart
       - run: flutter build windows --release --build-number ${{ github.run_number }}
       # Text from scanned pages (OCR) runs the Tesseract program, which the
       # app looks for in a "tesseract" folder next to Pagelume.exe. Language
