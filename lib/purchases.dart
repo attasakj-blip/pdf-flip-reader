@@ -30,7 +30,7 @@ const freeAmbient = {0, 1, 2};
 /// Google Play; the Windows app installed from the Microsoft Store sells Gold.
 /// Elsewhere (the Windows zip, iOS) everything is open.
 class Purchases extends ChangeNotifier {
-  Purchases._(this._prefs, {required this.selling});
+  Purchases._(this._prefs, {required this.selling, this.microsoftStore = false});
 
   /// Until [load] runs (and in tests) nothing is sold and everything is open.
   static Purchases instance = Purchases.free();
@@ -44,7 +44,7 @@ class Purchases extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final windowsStore = selling == null && Platform.isWindows && await WindowsStore.isPackaged();
     if (windowsStore) giftEarlyUsers(prefs);
-    final p = Purchases._(prefs, selling: selling ?? (Platform.isAndroid || windowsStore));
+    final p = Purchases._(prefs, selling: selling ?? (Platform.isAndroid || windowsStore), microsoftStore: windowsStore);
     instance = p;
     return p;
   }
@@ -74,8 +74,10 @@ class Purchases extends ChangeNotifier {
   bool get hasGold =>
       !selling || (_prefs?.getBool('owns_$goldId') ?? false) || (_prefs?.getBool('goldGift') ?? false);
 
-  /// Selling through the Microsoft Store rather than Google Play.
-  bool get _windows => selling && Platform.isWindows;
+  /// Selling through the Microsoft Store (the Windows app from the Store)
+  /// rather than Google Play.
+  final bool microsoftStore;
+  bool get _windows => selling && microsoftStore;
 
   /// Store ids of the Windows add-ons, by Product ID.
   final _storeIds = <String, String>{};
@@ -297,12 +299,12 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
                   Text(s.goldOwned, textAlign: TextAlign.center)
                 else ...[
                   if (locked) Text(s.goldLocked, textAlign: TextAlign.center),
-                  Text(Platform.isWindows ? s.goldPitchWin : s.goldPitch, textAlign: TextAlign.center),
+                  Text(p.microsoftStore ? s.goldPitchWin : s.goldPitch, textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   Text(s.goldFeatures, textAlign: TextAlign.center, style: Theme.of(ctx).textTheme.bodySmall),
                   const SizedBox(height: 16),
                   if (!p.storeReady || gold == null)
-                    Text(Platform.isWindows ? s.msStoreUnavailable : s.storeUnavailable, textAlign: TextAlign.center)
+                    Text(p.microsoftStore ? s.msStoreUnavailable : s.storeUnavailable, textAlign: TextAlign.center)
                   else
                     FilledButton.icon(
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
@@ -323,7 +325,7 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
                     onPressed: () async {
                       final ok = await p.restore();
                       if (!ctx.mounted) return;
-                      final win = Platform.isWindows;
+                      final win = p.microsoftStore;
                       final msg = !ok
                           ? (win ? s.msStoreUnavailable : s.storeUnavailable)
                           : p.hasGold
