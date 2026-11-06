@@ -284,6 +284,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Thank you! Ads are removed.',
     'goldOwned': 'You have Pagelume Gold: every tool, no ads. Thank you!',
     'goldMenu': 'Gold & remove ads',
+    'goldPitchWin': 'Pay once to unlock every tool. No subscription.',
+    'msStoreUnavailable': 'The Microsoft Store can’t be reached right now. Please try again later.',
+    'msRestoredNone': 'No purchases found for this Microsoft account.',
   },
   'th': {
     'pickPdf': 'เลือกไฟล์ PDF จากเครื่อง',
@@ -542,6 +545,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'ขอบคุณครับ ปิดโฆษณาแล้ว',
     'goldOwned': 'คุณมี Pagelume Gold แล้ว ใช้ได้ทุกเครื่องมือและไม่มีโฆษณา ขอบคุณครับ',
     'goldMenu': 'Gold และปิดโฆษณา',
+    'goldPitchWin': 'จ่ายครั้งเดียว ปลดล็อกเครื่องมือทั้งหมด ไม่ต้องสมัครสมาชิกรายเดือน',
+    'msStoreUnavailable': 'ติดต่อ Microsoft Store ไม่ได้ในตอนนี้ ลองใหม่อีกครั้งภายหลัง',
+    'msRestoredNone': 'ไม่พบรายการที่ซื้อไว้ในบัญชี Microsoft นี้',
   },
   'zh': {
     'pickPdf': '选择 PDF 文件',
@@ -800,6 +806,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': '谢谢！广告已去除。',
     'goldOwned': '你已拥有 Pagelume Gold：全部工具，无广告。谢谢！',
     'goldMenu': 'Gold 与去广告',
+    'goldPitchWin': '一次付费，解锁全部工具。无需订阅。',
+    'msStoreUnavailable': '暂时无法连接 Microsoft Store，请稍后再试。',
+    'msRestoredNone': '此 Microsoft 帐户中没有找到购买记录。',
   },
   'zh_Hant': {
     'pickPdf': '選擇 PDF 檔案',
@@ -1058,6 +1067,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': '謝謝！廣告已移除。',
     'goldOwned': '你已擁有 Pagelume Gold：全部工具，無廣告。謝謝！',
     'goldMenu': 'Gold 與移除廣告',
+    'goldPitchWin': '一次付費，解鎖全部工具。無需訂閱。',
+    'msStoreUnavailable': '暫時無法連線到 Microsoft Store，請稍後再試。',
+    'msRestoredNone': '此 Microsoft 帳戶中找不到購買記錄。',
   },
   'ja': {
     'pickPdf': 'PDF ファイルを選ぶ',
@@ -1316,6 +1328,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'ありがとうございます！広告を非表示にしました。',
     'goldOwned': 'Pagelume Gold をお持ちです。すべてのツールが使え、広告はありません。ありがとうございます！',
     'goldMenu': 'Gold・広告を消す',
+    'goldPitchWin': '一度の購入ですべてのツールが使えます。サブスクリプションではありません。',
+    'msStoreUnavailable': '現在 Microsoft Store に接続できません。後でもう一度お試しください。',
+    'msRestoredNone': 'この Microsoft アカウントには購入履歴がありません。',
   },
   'ko': {
     'pickPdf': 'PDF 파일 선택',
@@ -1574,6 +1589,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': '감사합니다! 광고가 제거되었습니다.',
     'goldOwned': 'Pagelume Gold를 보유하고 있습니다. 모든 도구, 광고 없음. 감사합니다!',
     'goldMenu': 'Gold 및 광고 제거',
+    'goldPitchWin': '한 번 결제로 모든 도구를 쓸 수 있습니다. 구독이 아닙니다.',
+    'msStoreUnavailable': '지금은 Microsoft Store에 연결할 수 없습니다. 나중에 다시 시도하세요.',
+    'msRestoredNone': '이 Microsoft 계정에서 구매 내역을 찾을 수 없습니다.',
   },
   'fr': {
     'pickPdf': 'Choisir un fichier PDF',
@@ -1832,6 +1850,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Merci ! Les publicités sont supprimées.',
     'goldOwned': 'Vous avez Pagelume Gold : tous les outils, sans publicité. Merci !',
     'goldMenu': 'Gold et sans pub',
+    'goldPitchWin': 'Payez une seule fois pour débloquer tous les outils. Sans abonnement.',
+    'msStoreUnavailable': 'Le Microsoft Store est injoignable pour le moment. Réessayez plus tard.',
+    'msRestoredNone': 'Aucun achat trouvé pour ce compte Microsoft.',
   },
   'de': {
     'pickPdf': 'PDF-Datei auswählen',
@@ -2090,6 +2111,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Danke! Die Werbung ist entfernt.',
     'goldOwned': 'Sie haben Pagelume Gold: alle Werkzeuge, keine Werbung. Danke!',
     'goldMenu': 'Gold & werbefrei',
+    'goldPitchWin': 'Einmal zahlen und alle Werkzeuge freischalten. Kein Abo.',
+    'msStoreUnavailable': 'Der Microsoft Store ist gerade nicht erreichbar. Bitte später erneut versuchen.',
+    'msRestoredNone': 'Für dieses Microsoft-Konto wurden keine Käufe gefunden.',
   },
   'it': {
     'pickPdf': 'Scegli un file PDF',
@@ -2348,6 +2372,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Grazie! La pubblicità è stata rimossa.',
     'goldOwned': 'Hai Pagelume Gold: tutti gli strumenti, niente pubblicità. Grazie!',
     'goldMenu': 'Gold e senza pubblicità',
+    'goldPitchWin': 'Paga una sola volta per sbloccare tutti gli strumenti. Nessun abbonamento.',
+    'msStoreUnavailable': 'Al momento il Microsoft Store non è raggiungibile. Riprova più tardi.',
+    'msRestoredNone': 'Nessun acquisto trovato per questo account Microsoft.',
   },
   'es': {
     'pickPdf': 'Elegir un archivo PDF',
@@ -2606,6 +2633,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': '¡Gracias! Se quitaron los anuncios.',
     'goldOwned': 'Tienes Pagelume Gold: todas las herramientas y sin anuncios. ¡Gracias!',
     'goldMenu': 'Gold y sin anuncios',
+    'goldPitchWin': 'Paga una sola vez para desbloquear todas las herramientas. Sin suscripción.',
+    'msStoreUnavailable': 'No se puede conectar con Microsoft Store ahora. Inténtalo más tarde.',
+    'msRestoredNone': 'No se encontraron compras para esta cuenta de Microsoft.',
   },
   'pt': {
     'pickPdf': 'Escolher um arquivo PDF',
@@ -2864,6 +2894,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Obrigado! Os anúncios foram removidos.',
     'goldOwned': 'Você tem o Pagelume Gold: todas as ferramentas, sem anúncios. Obrigado!',
     'goldMenu': 'Gold e sem anúncios',
+    'goldPitchWin': 'Pague uma vez para desbloquear todas as ferramentas. Sem assinatura.',
+    'msStoreUnavailable': 'Não foi possível acessar a Microsoft Store agora. Tente novamente mais tarde.',
+    'msRestoredNone': 'Nenhuma compra encontrada para esta conta Microsoft.',
   },
   'ru': {
     'pickPdf': 'Выбрать PDF-файл',
@@ -3122,6 +3155,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Спасибо! Реклама убрана.',
     'goldOwned': 'У вас Pagelume Gold: все инструменты, без рекламы. Спасибо!',
     'goldMenu': 'Gold и без рекламы',
+    'goldPitchWin': 'Оплатите один раз — и все инструменты открыты. Без подписки.',
+    'msStoreUnavailable': 'Сейчас нет связи с Microsoft Store. Попробуйте позже.',
+    'msRestoredNone': 'Для этой учётной записи Microsoft покупки не найдены.',
   },
   'uk': {
     'pickPdf': 'Вибрати PDF-файл',
@@ -3380,6 +3416,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Дякуємо! Рекламу прибрано.',
     'goldOwned': 'У вас Pagelume Gold: усі інструменти, без реклами. Дякуємо!',
     'goldMenu': 'Gold і без реклами',
+    'goldPitchWin': 'Сплатіть один раз — і всі інструменти відкриті. Без підписки.',
+    'msStoreUnavailable': 'Зараз немає зв’язку з Microsoft Store. Спробуйте пізніше.',
+    'msRestoredNone': 'Для цього облікового запису Microsoft покупок не знайдено.',
   },
   'pl': {
     'pickPdf': 'Wybierz plik PDF',
@@ -3638,6 +3677,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Dziękujemy! Reklamy zostały usunięte.',
     'goldOwned': 'Masz Pagelume Gold: wszystkie narzędzia, bez reklam. Dziękujemy!',
     'goldMenu': 'Gold i bez reklam',
+    'goldPitchWin': 'Zapłać raz i odblokuj wszystkie narzędzia. Bez subskrypcji.',
+    'msStoreUnavailable': 'Nie można teraz połączyć się z Microsoft Store. Spróbuj później.',
+    'msRestoredNone': 'Nie znaleziono zakupów na tym koncie Microsoft.',
   },
   'nl': {
     'pickPdf': 'Kies een pdf-bestand',
@@ -3896,6 +3938,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Bedankt! De advertenties zijn verwijderd.',
     'goldOwned': 'Je hebt Pagelume Gold: alle hulpmiddelen, geen advertenties. Bedankt!',
     'goldMenu': 'Gold & zonder advertenties',
+    'goldPitchWin': 'Betaal één keer en ontgrendel alle hulpmiddelen. Geen abonnement.',
+    'msStoreUnavailable': 'De Microsoft Store is nu niet bereikbaar. Probeer het later opnieuw.',
+    'msRestoredNone': 'Geen aankopen gevonden voor dit Microsoft-account.',
   },
   'tr': {
     'pickPdf': 'PDF dosyası seç',
@@ -4154,6 +4199,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Teşekkürler! Reklamlar kaldırıldı.',
     'goldOwned': 'Pagelume Gold sizde: tüm araçlar, reklamsız. Teşekkürler!',
     'goldMenu': 'Gold ve reklamsız',
+    'goldPitchWin': 'Bir kez ödeyin, tüm araçların kilidini açın. Abonelik yok.',
+    'msStoreUnavailable': 'Şu anda Microsoft Store\'a ulaşılamıyor. Lütfen daha sonra tekrar deneyin.',
+    'msRestoredNone': 'Bu Microsoft hesabında satın alım bulunamadı.',
   },
   'ar': {
     'pickPdf': 'اختيار ملف PDF',
@@ -4412,6 +4460,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'شكرًا! تمت إزالة الإعلانات.',
     'goldOwned': 'لديك Pagelume Gold: كل الأدوات وبدون إعلانات. شكرًا!',
     'goldMenu': 'Gold وإزالة الإعلانات',
+    'goldPitchWin': 'ادفع مرة واحدة لفتح جميع الأدوات. بدون اشتراك.',
+    'msStoreUnavailable': 'تعذر الوصول إلى Microsoft Store الآن. حاول مرة أخرى لاحقًا.',
+    'msRestoredNone': 'لا توجد مشتريات لحساب Microsoft هذا.',
   },
   'hi': {
     'pickPdf': 'PDF फ़ाइल चुनें',
@@ -4670,6 +4721,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'धन्यवाद! विज्ञापन हटा दिए गए।',
     'goldOwned': 'आपके पास Pagelume Gold है: सभी टूल, कोई विज्ञापन नहीं। धन्यवाद!',
     'goldMenu': 'Gold और विज्ञापन हटाएँ',
+    'goldPitchWin': 'एक बार भुगतान करें और सभी टूल अनलॉक करें। कोई सदस्यता नहीं।',
+    'msStoreUnavailable': 'अभी Microsoft Store से कनेक्ट नहीं हो पा रहा। बाद में फिर कोशिश करें।',
+    'msRestoredNone': 'इस Microsoft खाते में कोई खरीदारी नहीं मिली।',
   },
   'bn': {
     'pickPdf': 'PDF ফাইল বেছে নিন',
@@ -4928,6 +4982,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'ধন্যবাদ! বিজ্ঞাপন সরানো হয়েছে।',
     'goldOwned': 'আপনার Pagelume Gold আছে: সব টুল, কোনো বিজ্ঞাপন নেই। ধন্যবাদ!',
     'goldMenu': 'Gold ও বিজ্ঞাপন সরান',
+    'goldPitchWin': 'একবার পেমেন্ট করে সব টুল আনলক করুন। কোনো সাবস্ক্রিপশন নেই।',
+    'msStoreUnavailable': 'এখন Microsoft Store-এ সংযোগ করা যাচ্ছে না। পরে আবার চেষ্টা করুন।',
+    'msRestoredNone': 'এই Microsoft অ্যাকাউন্টে কোনো কেনাকাটা পাওয়া যায়নি।',
   },
   'id': {
     'pickPdf': 'Pilih file PDF',
@@ -5186,6 +5243,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Terima kasih! Iklan sudah dihapus.',
     'goldOwned': 'Anda punya Pagelume Gold: semua alat, tanpa iklan. Terima kasih!',
     'goldMenu': 'Gold & hapus iklan',
+    'goldPitchWin': 'Bayar sekali untuk membuka semua alat. Tanpa langganan.',
+    'msStoreUnavailable': 'Microsoft Store tidak dapat dihubungi saat ini. Coba lagi nanti.',
+    'msRestoredNone': 'Tidak ada pembelian untuk akun Microsoft ini.',
   },
   'ms': {
     'pickPdf': 'Pilih fail PDF',
@@ -5444,6 +5504,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Terima kasih! Iklan telah dibuang.',
     'goldOwned': 'Anda mempunyai Pagelume Gold: semua alat, tanpa iklan. Terima kasih!',
     'goldMenu': 'Gold & buang iklan',
+    'goldPitchWin': 'Bayar sekali untuk membuka semua alat. Tiada langganan.',
+    'msStoreUnavailable': 'Microsoft Store tidak dapat dihubungi sekarang. Cuba lagi nanti.',
+    'msRestoredNone': 'Tiada pembelian ditemui untuk akaun Microsoft ini.',
   },
   'vi': {
     'pickPdf': 'Chọn tệp PDF',
@@ -5702,6 +5765,9 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Cảm ơn bạn! Quảng cáo đã được gỡ bỏ.',
     'goldOwned': 'Bạn đã có Pagelume Gold: mọi công cụ, không quảng cáo. Cảm ơn bạn!',
     'goldMenu': 'Gold & bỏ quảng cáo',
+    'goldPitchWin': 'Trả một lần để mở khóa mọi công cụ. Không cần đăng ký định kỳ.',
+    'msStoreUnavailable': 'Hiện không kết nối được Microsoft Store. Vui lòng thử lại sau.',
+    'msRestoredNone': 'Không tìm thấy giao dịch nào cho tài khoản Microsoft này.',
   },
   'fil': {
     'pickPdf': 'Pumili ng PDF file',
@@ -5960,5 +6026,8 @@ const translations = <String, Map<String, String>>{
     'thanksClear': 'Salamat! Naalis na ang ads.',
     'goldOwned': 'Mayroon kang Pagelume Gold: lahat ng tool, walang ads. Salamat!',
     'goldMenu': 'Gold at alisin ang ads',
+    'goldPitchWin': 'Magbayad nang isang beses para ma-unlock ang lahat ng tool. Walang subscription.',
+    'msStoreUnavailable': 'Hindi maabot ang Microsoft Store ngayon. Subukan ulit mamaya.',
+    'msRestoredNone': 'Walang nabiling nakita sa Microsoft account na ito.',
   },
 };

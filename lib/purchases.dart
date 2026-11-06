@@ -7,9 +7,11 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n.dart';
+import 'windows_store.dart';
 
 /// Product ids in Play Console (Monetize › In-app products). Both are
-/// one-time purchases.
+/// one-time purchases. Gold uses the same Product ID as a Durable add-on in
+/// Microsoft Partner Center; Clear is not sold on Windows (no ads there).
 const clearId = 'pagelume_clear'; // removes ads
 const goldId = 'pagelume_gold'; // every Gold tool, and no ads
 
@@ -24,10 +26,11 @@ const freeFlipStyles = {0, 2, 3};
 /// Background sounds (indexes) free to everyone: the first three.
 const freeAmbient = {0, 1, 2};
 
-/// What the person has bought. Only the Android app sells anything for now;
-/// on other systems everything is open and there are no ads to remove.
+/// What the person has bought. The Android app sells Gold and Clear through
+/// Google Play; the Windows app installed from the Microsoft Store sells Gold.
+/// Elsewhere (the Windows zip, iOS) everything is open.
 class Purchases extends ChangeNotifier {
-  Purchases._(this._prefs, {required this.selling});
+  Purchases._(this._prefs, {required this.selling, this.microsoftStore = false});
 
   /// Until [load] runs (and in tests) nothing is sold and everything is open.
   static Purchases instance = Purchases.free();
@@ -35,11 +38,26 @@ class Purchases extends ChangeNotifier {
   /// Nothing sold, everything open.
   Purchases.free() : this._(null, selling: false);
 
-  /// Sets up [instance]. [selling] defaults to Android.
+  /// Sets up [instance]. [selling] defaults to Android, or Windows when the
+  /// app came as a Store package.
   static Future<Purchases> load({bool? selling}) async {
-    final p = Purchases._(await SharedPreferences.getInstance(), selling: selling ?? Platform.isAndroid);
+    final prefs = await SharedPreferences.getInstance();
+    final windowsStore = selling == null && Platform.isWindows && await WindowsStore.isPackaged();
+    if (windowsStore) giftEarlyUsers(prefs);
+    final p = Purchases._(prefs, selling: selling ?? (Platform.isAndroid || windowsStore), microsoftStore: windowsStore);
     instance = p;
     return p;
+  }
+
+  /// Every tool was free on Windows until Gold went on sale there. People who
+  /// had already used the app (it saved some setting or recent book) keep
+  /// everything as a gift; new installs get the free tries and the offer.
+  /// Runs once, before anything else is saved on this start.
+  @visibleForTesting
+  static void giftEarlyUsers(SharedPreferences prefs) {
+    if (prefs.containsKey('goldEra')) return;
+    prefs.setBool('goldGift', prefs.getKeys().isNotEmpty);
+    prefs.setBool('goldEra', true);
   }
 
   final SharedPreferences? _prefs;
@@ -51,9 +69,18 @@ class Purchases extends ChangeNotifier {
 
   StreamSubscription<List<PurchaseDetails>>? _sub;
 
-  /// Cached on the phone so it works offline; checked with Google Play on
+  /// Cached on the device so it works offline; checked with the store on
   /// every start.
-  bool get hasGold => !selling || (_prefs?.getBool('owns_$goldId') ?? false);
+  bool get hasGold =>
+      !selling || (_prefs?.getBool('owns_$goldId') ?? false) || (_prefs?.getBool('goldGift') ?? false);
+
+  /// Selling through the Microsoft Store (the Windows app from the Store)
+  /// rather than Google Play.
+  final bool microsoftStore;
+  bool get _windows => selling && microsoftStore;
+
+  /// Store ids of the Windows add-ons, by Product ID.
+  final _storeIds = <String, String>{};
   bool get hasClear => _prefs?.getBool('owns_$clearId') ?? false;
   bool get adsOff => selling && (hasGold || hasClear);
 
@@ -79,6 +106,7 @@ class Purchases extends ChangeNotifier {
   /// owned so refunds are taken back.
   Future<void> start() async {
     if (!selling) return;
+    if (_windows) return _startWindows();
     try {
       final iap = InAppPurchase.instance;
       _sub = iap.purchaseStream.listen(_onPurchases, onError: (Object e) => debugPrint('purchase error: $e'));
@@ -95,8 +123,38 @@ class Purchases extends ChangeNotifier {
     }
   }
 
-  /// Asks Google Play for everything this account owns.
+  /// Loads the Gold price from the Microsoft Store and checks what this
+  /// Microsoft account owns.
+  Future<void> _startWindows() async {
+    try {
+      final addOns = await WindowsStore.products();
+      final gold = addOns[goldId];
+      if (gold != null) {
+        _storeIds[goldId] = gold.storeId;
+        products[goldId] = ProductDetails(
+          id: goldId,
+          title: gold.title,
+          description: '',
+          price: gold.price,
+          rawPrice: 0,
+          currencyCode: '',
+        );
+      }
+      storeReady = true;
+      notifyListeners();
+      await _checkOwned();
+    } catch (e) {
+      debugPrint('Microsoft Store unavailable: $e');
+    }
+  }
+
+  /// Asks the store for everything this account owns.
   Future<bool> _checkOwned() async {
+    if (_windows) {
+      final owned = await WindowsStore.owned();
+      _own(goldId, owned.contains(goldId));
+      return true;
+    }
     final add = InAppPurchase.instance.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
     final r = await add.queryPastPurchases();
     if (r.error != null) return false;
@@ -136,10 +194,32 @@ class Purchases extends ChangeNotifier {
   Future<void> buy(String id) async {
     final p = products[id];
     if (p == null) return;
+    if (_windows) return _buyWindows(id);
     await InAppPurchase.instance.buyNonConsumable(purchaseParam: PurchaseParam(productDetails: p));
   }
 
-  /// Re-checks with Google Play. Returns false when Play cannot be reached.
+  Future<void> _buyWindows(String id) async {
+    final storeId = _storeIds[id];
+    if (storeId == null) return;
+    try {
+      switch (await WindowsStore.buy(storeId)) {
+        case StoreBuyResult.succeeded:
+        case StoreBuyResult.alreadyPurchased:
+          _own(id, true);
+          messages.add((s) => s.thanksGold);
+        case StoreBuyResult.notPurchased:
+          break; // closed the Store window
+        case StoreBuyResult.networkError:
+        case StoreBuyResult.serverError:
+          messages.add((s) => s.msStoreUnavailable);
+      }
+    } catch (e) {
+      debugPrint('Microsoft Store purchase failed: $e');
+      messages.add((s) => s.msStoreUnavailable);
+    }
+  }
+
+  /// Re-checks with the store. Returns false when it cannot be reached.
   Future<bool> restore() async {
     if (!selling) return true;
     try {
@@ -219,12 +299,12 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
                   Text(s.goldOwned, textAlign: TextAlign.center)
                 else ...[
                   if (locked) Text(s.goldLocked, textAlign: TextAlign.center),
-                  Text(s.goldPitch, textAlign: TextAlign.center),
+                  Text(p.microsoftStore ? s.goldPitchWin : s.goldPitch, textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   Text(s.goldFeatures, textAlign: TextAlign.center, style: Theme.of(ctx).textTheme.bodySmall),
                   const SizedBox(height: 16),
                   if (!p.storeReady || gold == null)
-                    Text(s.storeUnavailable, textAlign: TextAlign.center)
+                    Text(p.microsoftStore ? s.msStoreUnavailable : s.storeUnavailable, textAlign: TextAlign.center)
                   else
                     FilledButton.icon(
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
@@ -245,13 +325,14 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
                     onPressed: () async {
                       final ok = await p.restore();
                       if (!ctx.mounted) return;
+                      final win = p.microsoftStore;
                       final msg = !ok
-                          ? s.storeUnavailable
+                          ? (win ? s.msStoreUnavailable : s.storeUnavailable)
                           : p.hasGold
                           ? s.thanksGold
                           : p.hasClear
                           ? s.thanksClear
-                          : s.restoredNone;
+                          : (win ? s.msRestoredNone : s.restoredNone);
                       messenger?.showSnackBar(SnackBar(content: Text(msg)));
                     },
                     child: Text(s.restorePurchases),

@@ -108,4 +108,29 @@ void main() {
       expect(s.buyClear('฿99'), contains('Pagelume Clear'), reason: code);
     }
   });
+
+  test('Windows users from before Gold keep everything; new installs do not', () async {
+    SharedPreferences.setMockInitialValues({'flipStyle': 5});
+    Purchases.giftEarlyUsers(await SharedPreferences.getInstance());
+    expect((await Purchases.load(selling: true)).hasGold, isTrue);
+
+    SharedPreferences.setMockInitialValues({});
+    Purchases.giftEarlyUsers(await SharedPreferences.getInstance());
+    final fresh = await Purchases.load(selling: true);
+    expect(fresh.hasGold, isFalse);
+    // Later starts, with settings saved by now, do not hand out the gift.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('nightMode', true);
+    Purchases.giftEarlyUsers(prefs);
+    expect(fresh.hasGold, isFalse);
+  });
+
+  test('every language has the Microsoft Store texts', () {
+    for (final code in S.codes) {
+      final s = S(code);
+      expect(s.msStoreUnavailable, contains('Microsoft Store'), reason: code);
+      expect(s.msRestoredNone, contains('Microsoft'), reason: code);
+      expect(s.goldPitchWin, isNotEmpty, reason: code);
+    }
+  });
 }

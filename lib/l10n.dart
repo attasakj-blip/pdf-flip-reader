@@ -56,6 +56,11 @@ class S {
   String get goldOwned => _f('goldOwned');
   String get goldMenu => _f('goldMenu');
 
+  // Selling Gold in the Microsoft Store (Windows).
+  String get goldPitchWin => _f('goldPitchWin');
+  String get msStoreUnavailable => _f('msStoreUnavailable');
+  String get msRestoredNone => _f('msRestoredNone');
+
   String get pickPdf => _f('pickPdf');
   String get pickHint => _f('pickHint');
   String get recent => _f('recent');
