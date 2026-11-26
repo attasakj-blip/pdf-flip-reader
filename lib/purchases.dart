@@ -27,8 +27,9 @@ const freeFlipStyles = {0, 2, 3};
 const freeAmbient = {0, 1, 2};
 
 /// What the person has bought. The Android app sells Gold and Clear through
-/// Google Play; the Windows app installed from the Microsoft Store sells Gold.
-/// Elsewhere (the Windows zip, iOS) everything is open.
+/// Google Play, the iOS app through the App Store; the Windows app installed
+/// from the Microsoft Store sells Gold. Elsewhere (the Windows zip)
+/// everything is open.
 class Purchases extends ChangeNotifier {
   Purchases._(this._prefs, {required this.selling, this.microsoftStore = false});
 
@@ -38,13 +39,17 @@ class Purchases extends ChangeNotifier {
   /// Nothing sold, everything open.
   Purchases.free() : this._(null, selling: false);
 
-  /// Sets up [instance]. [selling] defaults to Android, or Windows when the
-  /// app came as a Store package.
+  /// Sets up [instance]. [selling] defaults to Android and iOS, or Windows
+  /// when the app came as a Store package.
   static Future<Purchases> load({bool? selling}) async {
     final prefs = await SharedPreferences.getInstance();
     final windowsStore = selling == null && Platform.isWindows && await WindowsStore.isPackaged();
     if (windowsStore) giftEarlyUsers(prefs);
-    final p = Purchases._(prefs, selling: selling ?? (Platform.isAndroid || windowsStore), microsoftStore: windowsStore);
+    final p = Purchases._(
+      prefs,
+      selling: selling ?? (Platform.isAndroid || Platform.isIOS || windowsStore),
+      microsoftStore: windowsStore,
+    );
     instance = p;
     return p;
   }
@@ -78,6 +83,12 @@ class Purchases extends ChangeNotifier {
   /// rather than Google Play.
   final bool microsoftStore;
   bool get _windows => selling && microsoftStore;
+
+  /// Selling through the App Store (iOS).
+  bool get appStore => selling && !microsoftStore && Platform.isIOS;
+
+  /// Set while the App Store is sending back earlier purchases.
+  Completer<void>? _restoring;
 
   /// Store ids of the Windows add-ons, by Product ID.
   final _storeIds = <String, String>{};
@@ -117,7 +128,10 @@ class Purchases extends ChangeNotifier {
       }
       storeReady = true;
       notifyListeners();
-      await _checkOwned();
+      // The App Store may ask for the Apple Account password to restore, so
+      // that waits for the Restore button; what was bought is kept on the
+      // device, and unfinished purchases arrive on the stream by themselves.
+      if (!appStore) await _checkOwned();
     } catch (e) {
       debugPrint('store unavailable: $e');
     }
@@ -150,6 +164,7 @@ class Purchases extends ChangeNotifier {
 
   /// Asks the store for everything this account owns.
   Future<bool> _checkOwned() async {
+    if (appStore) return _restoreApple();
     if (_windows) {
       final owned = await WindowsStore.owned();
       _own(goldId, owned.contains(goldId));
@@ -170,6 +185,19 @@ class Purchases extends ChangeNotifier {
     return true;
   }
 
+  /// Asks the App Store to send back earlier purchases, and waits a little
+  /// for them (nothing comes back when nothing was bought).
+  Future<bool> _restoreApple() async {
+    final done = _restoring = Completer<void>();
+    try {
+      await InAppPurchase.instance.restorePurchases();
+      await done.future.timeout(const Duration(seconds: 5), onTimeout: () {});
+      return true;
+    } finally {
+      _restoring = null;
+    }
+  }
+
   /// Shown in a snack bar by [showPaywall]'s caller.
   final messages = StreamController<String Function(S)>.broadcast();
 
@@ -179,7 +207,8 @@ class Purchases extends ChangeNotifier {
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           _own(p.productID, true);
-          messages.add((s) => p.productID == goldId ? s.thanksGold : s.thanksClear);
+          // A restore says what it found itself, once, when it is done.
+          if (_restoring == null) messages.add((s) => p.productID == goldId ? s.thanksGold : s.thanksClear);
         case PurchaseStatus.pending:
           messages.add((s) => s.purchasePending);
         case PurchaseStatus.error:
@@ -189,6 +218,8 @@ class Purchases extends ChangeNotifier {
       // Google refunds purchases that are not acknowledged within 3 days.
       if (p.pendingCompletePurchase) await InAppPurchase.instance.completePurchase(p);
     }
+    final r = _restoring;
+    if (r != null && !r.isCompleted && list.isNotEmpty) r.complete();
   }
 
   Future<void> buy(String id) async {
@@ -304,7 +335,7 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
                   Text(s.goldFeatures, textAlign: TextAlign.center, style: Theme.of(ctx).textTheme.bodySmall),
                   const SizedBox(height: 16),
                   if (!p.storeReady || gold == null)
-                    Text(p.microsoftStore ? s.msStoreUnavailable : s.storeUnavailable, textAlign: TextAlign.center)
+                    Text(_unavailable(p, s), textAlign: TextAlign.center)
                   else
                     FilledButton.icon(
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
@@ -325,14 +356,17 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
                     onPressed: () async {
                       final ok = await p.restore();
                       if (!ctx.mounted) return;
-                      final win = p.microsoftStore;
                       final msg = !ok
-                          ? (win ? s.msStoreUnavailable : s.storeUnavailable)
+                          ? _unavailable(p, s)
                           : p.hasGold
                           ? s.thanksGold
                           : p.hasClear
                           ? s.thanksClear
-                          : (win ? s.msRestoredNone : s.restoredNone);
+                          : p.microsoftStore
+                          ? s.msRestoredNone
+                          : p.appStore
+                          ? s.appleRestoredNone
+                          : s.restoredNone;
                       messenger?.showSnackBar(SnackBar(content: Text(msg)));
                     },
                     child: Text(s.restorePurchases),
@@ -347,3 +381,7 @@ Future<void> showPaywall(BuildContext context, {bool locked = false}) async {
   );
   unawaited(sub.cancel());
 }
+
+/// "The store can't be reached", naming the store this app sells through.
+String _unavailable(Purchases p, S s) =>
+    p.microsoftStore ? s.msStoreUnavailable : (p.appStore ? s.appStoreUnavailable : s.storeUnavailable);

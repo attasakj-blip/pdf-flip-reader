@@ -11,6 +11,10 @@
 			<string>cstr6suwn9.skadnetwork</string>
 		</dict>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Pagelume saves pages you copy or share as pictures to your photos when you choose Save Image.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pagelume opens pictures from your photos only when you choose one.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
