@@ -548,6 +548,11 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
   static const _railWidth = 60.0;
   bool get _rails => Desktop.active;
 
+  /// How far the book sits in from each side (the rails' room on Windows).
+  /// Every layer laid over the book must sit in by the same amount, since
+  /// page positions ([_zoomedSlots]) are measured from the book's own edge.
+  double get _inset => _rails ? _railWidth : 0;
+
   Widget _rail(bool left) => Positioned(
     top: 0,
     bottom: 0,
@@ -1623,8 +1628,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
           child: Stack(
             children: [
               Positioned.fill(
-                left: _rails ? _railWidth : 0,
-                right: _rails ? _railWidth : 0,
+                left: _inset,
+                right: _inset,
                 child: cache == null ? const SizedBox.shrink() : _bookView(cache),
               ),
               if (cache != null && _tool == _Tool.none) _topBar(),
@@ -1632,6 +1637,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
               if (cache != null && _spreads.length > 2 && _tool == _Tool.none) _scroller(),
               if (_tool == _Tool.sign && _signature != null)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: PlaceSignature(
                     signature: _signature!,
                     slots: _zoomedSlots,
@@ -1641,6 +1648,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ),
               if (_tool == _Tool.markup)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: MarkupLayer(
                     slots: _zoomedSlots,
                     marks: _marks,
@@ -1658,10 +1667,14 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ),
               if (_tool == _Tool.text && _marks.isNotEmpty)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: IgnorePointer(child: CustomPaint(painter: marksPainter(_marks, _zoomedSlots))),
                 ),
               if (_tool == _Tool.text)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: TextLayer(
                     slots: _zoomedSlots,
                     notes: _notes,
@@ -1677,6 +1690,8 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ),
               if (_tool == _Tool.translate)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: SelectArea(
                     hint: S.of(context).selectTextHint,
                     confirm: S.of(context).translateButton,
@@ -1686,10 +1701,14 @@ class _ReaderScreenState extends State<ReaderScreen> with TickerProviderStateMix
                 ),
               if (_tool == _Tool.area)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: SelectArea(onDone: _copyArea, onCancel: () => setState(() => _tool = _Tool.none)),
                 ),
               if (_tool == _Tool.ocr)
                 Positioned.fill(
+                  left: _inset,
+                  right: _inset,
                   child: SelectArea(
                     hint: S.of(context).ocrHint,
                     confirm: S.of(context).ocrButton,

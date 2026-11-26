@@ -1,7 +1,7 @@
 name: Build Windows app
 on:
   push:
-    branches: [main, claude/project-thread-jtdkdb, claude/project-thread-m1z0kk, claude/microsoft-store-msix, claude/windows-gold]
+    branches: [main, claude/project-thread-jtdkdb, claude/project-thread-m1z0kk, claude/microsoft-store-msix, claude/windows-gold, 'claude/fix-**']
   workflow_dispatch:
 permissions:
   contents: write
