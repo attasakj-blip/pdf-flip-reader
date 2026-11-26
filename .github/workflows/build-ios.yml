@@ -66,7 +66,7 @@ jobs:
           printf '%s\n' "$P8" > "$RUNNER_TEMP/keys/AuthKey.p8"
           grep -q 'BEGIN PRIVATE KEY' "$RUNNER_TEMP/keys/AuthKey.p8" || { echo "::error::APPSTORE_P8 is not the text of a .p8 key"; exit 1; }
       # Writes the version and build number for Xcode and installs the pods.
-      - run: flutter build ios --release --config-only --build-number ${{ github.run_number }}
+      - run: flutter build ios --release --config-only --no-codesign --build-number ${{ github.run_number }}
       - name: Archive (signed by Xcode with the API key)
         env:
           ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
