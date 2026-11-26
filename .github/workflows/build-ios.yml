@@ -3,6 +3,11 @@ on:
   push:
     branches: [main, 'claude/ios-**']
   workflow_dispatch:
+    inputs:
+      testflight:
+        description: 'Also sign the app and upload it to TestFlight'
+        type: boolean
+        default: false
 jobs:
   build:
     runs-on: macos-latest
@@ -24,3 +29,72 @@ jobs:
         with:
           name: pagelume-ios-unsigned
           path: Pagelume-unsigned.zip
+
+  # Builds the signed iOS app and uploads it to App Store Connect, where it
+  # shows up in TestFlight after Apple's processing (about 10-30 minutes).
+  # Run it from Actions > Build iOS app > Run workflow, ticking the box.
+  # Needs these repository secrets (Settings > Secrets and variables > Actions):
+  #   APPSTORE_ISSUER_ID, APPSTORE_KEY_ID - from App Store Connect > Users and
+  #     Access > Integrations (an Admin key, so Xcode can make the certificates)
+  #   APPSTORE_P8 - the whole text of that key's .p8 file
+  #   APPLE_TEAM_ID - Team ID from developer.apple.com > Membership details
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && inputs.testflight
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+          channel: stable
+      - run: flutter pub get
+      - name: Check the secrets are there
+        env:
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          P8: ${{ secrets.APPSTORE_P8 }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          [ -n "$ISSUER" ] || missing="$missing APPSTORE_ISSUER_ID"
+          [ -n "$KEY_ID" ] || missing="$missing APPSTORE_KEY_ID"
+          [ -n "$P8" ] || missing="$missing APPSTORE_P8"
+          [ -n "$TEAM" ] || missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing"; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$P8" > "$RUNNER_TEMP/keys/AuthKey.p8"
+          grep -q 'BEGIN PRIVATE KEY' "$RUNNER_TEMP/keys/AuthKey.p8" || { echo "::error::APPSTORE_P8 is not the text of a .p8 key"; exit 1; }
+      # Writes the version and build number for Xcode and installs the pods.
+      - run: flutter build ios --release --config-only --build-number ${{ github.run_number }}
+      - name: Archive (signed by Xcode with the API key)
+        env:
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
+            archive | tail -n 60
+          test -d "$RUNNER_TEMP/Runner.xcarchive" || { echo "::error::Archive failed"; exit 1; }
+      - name: Upload to App Store Connect
+        env:
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          sed "s/TEAM_ID/$TEAM/" ios/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER"
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
