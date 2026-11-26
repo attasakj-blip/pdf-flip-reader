@@ -289,6 +289,7 @@ from translations_desktop import DESKTOP  # noqa: E402
 from translations_flip import FLIP  # noqa: E402
 from translations_gold import GOLD  # noqa: E402
 from translations_winstore import WINSTORE  # noqa: E402
+from translations_ios import IOS  # noqa: E402
 
 ADDED.update(FEATURES)
 ADDED.update(TRANSLATE)
@@ -300,6 +301,7 @@ ADDED.update(DESKTOP)
 ADDED.update(FLIP)
 ADDED.update(GOLD)
 ADDED.update(WINSTORE)
+ADDED.update(IOS)
 for _key, _vals in ADDED.items():
     KEYS.append(_key)
     for _code, (_, _list) in LANGS.items():

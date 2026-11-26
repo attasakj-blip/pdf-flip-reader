@@ -61,6 +61,10 @@ class S {
   String get msStoreUnavailable => _f('msStoreUnavailable');
   String get msRestoredNone => _f('msRestoredNone');
 
+  // Selling Gold and Clear in the App Store (iOS).
+  String get appStoreUnavailable => _f('appStoreUnavailable');
+  String get appleRestoredNone => _f('appleRestoredNone');
+
   String get pickPdf => _f('pickPdf');
   String get pickHint => _f('pickHint');
   String get recent => _f('recent');

@@ -287,6 +287,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Pay once to unlock every tool. No subscription.',
     'msStoreUnavailable': 'The Microsoft Store can’t be reached right now. Please try again later.',
     'msRestoredNone': 'No purchases found for this Microsoft account.',
+    'appStoreUnavailable': 'The App Store can’t be reached right now. Please try again later.',
+    'appleRestoredNone': 'No purchases found for this Apple account.',
   },
   'th': {
     'pickPdf': 'เลือกไฟล์ PDF จากเครื่อง',
@@ -548,6 +550,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'จ่ายครั้งเดียว ปลดล็อกเครื่องมือทั้งหมด ไม่ต้องสมัครสมาชิกรายเดือน',
     'msStoreUnavailable': 'ติดต่อ Microsoft Store ไม่ได้ในตอนนี้ ลองใหม่อีกครั้งภายหลัง',
     'msRestoredNone': 'ไม่พบรายการที่ซื้อไว้ในบัญชี Microsoft นี้',
+    'appStoreUnavailable': 'ติดต่อ App Store ไม่ได้ในตอนนี้ ลองใหม่อีกครั้งภายหลัง',
+    'appleRestoredNone': 'ไม่พบรายการที่ซื้อไว้ในบัญชี Apple นี้',
   },
   'zh': {
     'pickPdf': '选择 PDF 文件',
@@ -809,6 +813,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': '一次付费，解锁全部工具。无需订阅。',
     'msStoreUnavailable': '暂时无法连接 Microsoft Store，请稍后再试。',
     'msRestoredNone': '此 Microsoft 帐户中没有找到购买记录。',
+    'appStoreUnavailable': '暂时无法连接 App Store，请稍后再试。',
+    'appleRestoredNone': '此 Apple 帐户中没有找到购买记录。',
   },
   'zh_Hant': {
     'pickPdf': '選擇 PDF 檔案',
@@ -1070,6 +1076,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': '一次付費，解鎖全部工具。無需訂閱。',
     'msStoreUnavailable': '暫時無法連線到 Microsoft Store，請稍後再試。',
     'msRestoredNone': '此 Microsoft 帳戶中找不到購買記錄。',
+    'appStoreUnavailable': '暫時無法連線到 App Store，請稍後再試。',
+    'appleRestoredNone': '此 Apple 帳戶中找不到購買記錄。',
   },
   'ja': {
     'pickPdf': 'PDF ファイルを選ぶ',
@@ -1331,6 +1339,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': '一度の購入ですべてのツールが使えます。サブスクリプションではありません。',
     'msStoreUnavailable': '現在 Microsoft Store に接続できません。後でもう一度お試しください。',
     'msRestoredNone': 'この Microsoft アカウントには購入履歴がありません。',
+    'appStoreUnavailable': '現在 App Store に接続できません。後でもう一度お試しください。',
+    'appleRestoredNone': 'この Apple アカウントには購入履歴がありません。',
   },
   'ko': {
     'pickPdf': 'PDF 파일 선택',
@@ -1592,6 +1602,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': '한 번 결제로 모든 도구를 쓸 수 있습니다. 구독이 아닙니다.',
     'msStoreUnavailable': '지금은 Microsoft Store에 연결할 수 없습니다. 나중에 다시 시도하세요.',
     'msRestoredNone': '이 Microsoft 계정에서 구매 내역을 찾을 수 없습니다.',
+    'appStoreUnavailable': '지금은 App Store에 연결할 수 없습니다. 나중에 다시 시도하세요.',
+    'appleRestoredNone': '이 Apple 계정에서 구매 내역을 찾을 수 없습니다.',
   },
   'fr': {
     'pickPdf': 'Choisir un fichier PDF',
@@ -1853,6 +1865,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Payez une seule fois pour débloquer tous les outils. Sans abonnement.',
     'msStoreUnavailable': 'Le Microsoft Store est injoignable pour le moment. Réessayez plus tard.',
     'msRestoredNone': 'Aucun achat trouvé pour ce compte Microsoft.',
+    'appStoreUnavailable': 'L’App Store est injoignable pour le moment. Réessayez plus tard.',
+    'appleRestoredNone': 'Aucun achat trouvé pour ce compte Apple.',
   },
   'de': {
     'pickPdf': 'PDF-Datei auswählen',
@@ -2114,6 +2128,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Einmal zahlen und alle Werkzeuge freischalten. Kein Abo.',
     'msStoreUnavailable': 'Der Microsoft Store ist gerade nicht erreichbar. Bitte später erneut versuchen.',
     'msRestoredNone': 'Für dieses Microsoft-Konto wurden keine Käufe gefunden.',
+    'appStoreUnavailable': 'Der App Store ist gerade nicht erreichbar. Bitte später erneut versuchen.',
+    'appleRestoredNone': 'Für dieses Apple-Konto wurden keine Käufe gefunden.',
   },
   'it': {
     'pickPdf': 'Scegli un file PDF',
@@ -2375,6 +2391,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Paga una sola volta per sbloccare tutti gli strumenti. Nessun abbonamento.',
     'msStoreUnavailable': 'Al momento il Microsoft Store non è raggiungibile. Riprova più tardi.',
     'msRestoredNone': 'Nessun acquisto trovato per questo account Microsoft.',
+    'appStoreUnavailable': 'Al momento l’App Store non è raggiungibile. Riprova più tardi.',
+    'appleRestoredNone': 'Nessun acquisto trovato per questo account Apple.',
   },
   'es': {
     'pickPdf': 'Elegir un archivo PDF',
@@ -2636,6 +2654,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Paga una sola vez para desbloquear todas las herramientas. Sin suscripción.',
     'msStoreUnavailable': 'No se puede conectar con Microsoft Store ahora. Inténtalo más tarde.',
     'msRestoredNone': 'No se encontraron compras para esta cuenta de Microsoft.',
+    'appStoreUnavailable': 'No se puede conectar con App Store ahora. Inténtalo más tarde.',
+    'appleRestoredNone': 'No se encontraron compras para esta cuenta de Apple.',
   },
   'pt': {
     'pickPdf': 'Escolher um arquivo PDF',
@@ -2897,6 +2917,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Pague uma vez para desbloquear todas as ferramentas. Sem assinatura.',
     'msStoreUnavailable': 'Não foi possível acessar a Microsoft Store agora. Tente novamente mais tarde.',
     'msRestoredNone': 'Nenhuma compra encontrada para esta conta Microsoft.',
+    'appStoreUnavailable': 'Não foi possível acessar a App Store agora. Tente novamente mais tarde.',
+    'appleRestoredNone': 'Nenhuma compra encontrada para esta conta Apple.',
   },
   'ru': {
     'pickPdf': 'Выбрать PDF-файл',
@@ -3158,6 +3180,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Оплатите один раз — и все инструменты открыты. Без подписки.',
     'msStoreUnavailable': 'Сейчас нет связи с Microsoft Store. Попробуйте позже.',
     'msRestoredNone': 'Для этой учётной записи Microsoft покупки не найдены.',
+    'appStoreUnavailable': 'Сейчас нет связи с App Store. Попробуйте позже.',
+    'appleRestoredNone': 'Для этой учётной записи Apple покупки не найдены.',
   },
   'uk': {
     'pickPdf': 'Вибрати PDF-файл',
@@ -3419,6 +3443,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Сплатіть один раз — і всі інструменти відкриті. Без підписки.',
     'msStoreUnavailable': 'Зараз немає зв’язку з Microsoft Store. Спробуйте пізніше.',
     'msRestoredNone': 'Для цього облікового запису Microsoft покупок не знайдено.',
+    'appStoreUnavailable': 'Зараз немає зв’язку з App Store. Спробуйте пізніше.',
+    'appleRestoredNone': 'Для цього облікового запису Apple покупок не знайдено.',
   },
   'pl': {
     'pickPdf': 'Wybierz plik PDF',
@@ -3680,6 +3706,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Zapłać raz i odblokuj wszystkie narzędzia. Bez subskrypcji.',
     'msStoreUnavailable': 'Nie można teraz połączyć się z Microsoft Store. Spróbuj później.',
     'msRestoredNone': 'Nie znaleziono zakupów na tym koncie Microsoft.',
+    'appStoreUnavailable': 'Nie można teraz połączyć się z App Store. Spróbuj później.',
+    'appleRestoredNone': 'Nie znaleziono zakupów na tym koncie Apple.',
   },
   'nl': {
     'pickPdf': 'Kies een pdf-bestand',
@@ -3941,6 +3969,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Betaal één keer en ontgrendel alle hulpmiddelen. Geen abonnement.',
     'msStoreUnavailable': 'De Microsoft Store is nu niet bereikbaar. Probeer het later opnieuw.',
     'msRestoredNone': 'Geen aankopen gevonden voor dit Microsoft-account.',
+    'appStoreUnavailable': 'De App Store is nu niet bereikbaar. Probeer het later opnieuw.',
+    'appleRestoredNone': 'Geen aankopen gevonden voor dit Apple-account.',
   },
   'tr': {
     'pickPdf': 'PDF dosyası seç',
@@ -4202,6 +4232,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Bir kez ödeyin, tüm araçların kilidini açın. Abonelik yok.',
     'msStoreUnavailable': 'Şu anda Microsoft Store\'a ulaşılamıyor. Lütfen daha sonra tekrar deneyin.',
     'msRestoredNone': 'Bu Microsoft hesabında satın alım bulunamadı.',
+    'appStoreUnavailable': 'Şu anda App Store\'a ulaşılamıyor. Lütfen daha sonra tekrar deneyin.',
+    'appleRestoredNone': 'Bu Apple hesabında satın alım bulunamadı.',
   },
   'ar': {
     'pickPdf': 'اختيار ملف PDF',
@@ -4463,6 +4495,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'ادفع مرة واحدة لفتح جميع الأدوات. بدون اشتراك.',
     'msStoreUnavailable': 'تعذر الوصول إلى Microsoft Store الآن. حاول مرة أخرى لاحقًا.',
     'msRestoredNone': 'لا توجد مشتريات لحساب Microsoft هذا.',
+    'appStoreUnavailable': 'تعذر الوصول إلى App Store الآن. حاول مرة أخرى لاحقًا.',
+    'appleRestoredNone': 'لا توجد مشتريات لحساب Apple هذا.',
   },
   'hi': {
     'pickPdf': 'PDF फ़ाइल चुनें',
@@ -4724,6 +4758,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'एक बार भुगतान करें और सभी टूल अनलॉक करें। कोई सदस्यता नहीं।',
     'msStoreUnavailable': 'अभी Microsoft Store से कनेक्ट नहीं हो पा रहा। बाद में फिर कोशिश करें।',
     'msRestoredNone': 'इस Microsoft खाते में कोई खरीदारी नहीं मिली।',
+    'appStoreUnavailable': 'अभी App Store से कनेक्ट नहीं हो पा रहा। बाद में फिर कोशिश करें।',
+    'appleRestoredNone': 'इस Apple खाते में कोई खरीदारी नहीं मिली।',
   },
   'bn': {
     'pickPdf': 'PDF ফাইল বেছে নিন',
@@ -4985,6 +5021,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'একবার পেমেন্ট করে সব টুল আনলক করুন। কোনো সাবস্ক্রিপশন নেই।',
     'msStoreUnavailable': 'এখন Microsoft Store-এ সংযোগ করা যাচ্ছে না। পরে আবার চেষ্টা করুন।',
     'msRestoredNone': 'এই Microsoft অ্যাকাউন্টে কোনো কেনাকাটা পাওয়া যায়নি।',
+    'appStoreUnavailable': 'এখন App Store-এ সংযোগ করা যাচ্ছে না। পরে আবার চেষ্টা করুন।',
+    'appleRestoredNone': 'এই Apple অ্যাকাউন্টে কোনো কেনাকাটা পাওয়া যায়নি।',
   },
   'id': {
     'pickPdf': 'Pilih file PDF',
@@ -5246,6 +5284,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Bayar sekali untuk membuka semua alat. Tanpa langganan.',
     'msStoreUnavailable': 'Microsoft Store tidak dapat dihubungi saat ini. Coba lagi nanti.',
     'msRestoredNone': 'Tidak ada pembelian untuk akun Microsoft ini.',
+    'appStoreUnavailable': 'App Store tidak dapat dihubungi saat ini. Coba lagi nanti.',
+    'appleRestoredNone': 'Tidak ada pembelian untuk akun Apple ini.',
   },
   'ms': {
     'pickPdf': 'Pilih fail PDF',
@@ -5507,6 +5547,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Bayar sekali untuk membuka semua alat. Tiada langganan.',
     'msStoreUnavailable': 'Microsoft Store tidak dapat dihubungi sekarang. Cuba lagi nanti.',
     'msRestoredNone': 'Tiada pembelian ditemui untuk akaun Microsoft ini.',
+    'appStoreUnavailable': 'App Store tidak dapat dihubungi sekarang. Cuba lagi nanti.',
+    'appleRestoredNone': 'Tiada pembelian ditemui untuk akaun Apple ini.',
   },
   'vi': {
     'pickPdf': 'Chọn tệp PDF',
@@ -5768,6 +5810,8 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Trả một lần để mở khóa mọi công cụ. Không cần đăng ký định kỳ.',
     'msStoreUnavailable': 'Hiện không kết nối được Microsoft Store. Vui lòng thử lại sau.',
     'msRestoredNone': 'Không tìm thấy giao dịch nào cho tài khoản Microsoft này.',
+    'appStoreUnavailable': 'Hiện không kết nối được App Store. Vui lòng thử lại sau.',
+    'appleRestoredNone': 'Không tìm thấy giao dịch nào cho tài khoản Apple này.',
   },
   'fil': {
     'pickPdf': 'Pumili ng PDF file',
@@ -6029,5 +6073,7 @@ const translations = <String, Map<String, String>>{
     'goldPitchWin': 'Magbayad nang isang beses para ma-unlock ang lahat ng tool. Walang subscription.',
     'msStoreUnavailable': 'Hindi maabot ang Microsoft Store ngayon. Subukan ulit mamaya.',
     'msRestoredNone': 'Walang nabiling nakita sa Microsoft account na ito.',
+    'appStoreUnavailable': 'Hindi maabot ang App Store ngayon. Subukan ulit mamaya.',
+    'appleRestoredNone': 'Walang nabiling nakita sa Apple account na ito.',
   },
 };
