@@ -67,6 +67,8 @@ jobs:
           grep -q 'BEGIN PRIVATE KEY' "$RUNNER_TEMP/keys/AuthKey.p8" || { echo "::error::APPSTORE_P8 is not the text of a .p8 key"; exit 1; }
       # Writes the version and build number for Xcode and installs the pods.
       - run: flutter build ios --release --config-only --no-codesign --build-number ${{ github.run_number }}
+      # Signed for the App Store straight away: a development profile would
+      # need a registered iPhone or iPad, and the team has none.
       - name: Archive (signed by Xcode with the API key)
         env:
           ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -77,6 +79,7 @@ jobs:
             -sdk iphoneos -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
+            'CODE_SIGN_IDENTITY=Apple Distribution' 'CODE_SIGN_IDENTITY[sdk=iphoneos*]=Apple Distribution' \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
             -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
